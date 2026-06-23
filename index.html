@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Management - Bandhan Bank Moradabad Cluster</title>
+    
+    <!-- Firebase App & Firestore SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        /* Modern & Colorful CSS */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            margin: 0; padding: 20px; color: #333;
+        }
+        .header {
+            text-align: center; background-color: #003366; color: white;
+            padding: 20px; border-radius: 8px; margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative;
+        }
+        .header h1 { margin: 0; font-size: 26px; }
+        .header h2 { margin: 5px 0 0 0; font-size: 18px; color: #ffcc00; }
+        .header p { margin: 5px 0 0 0; font-size: 15px; font-weight: bold; color: #b3d9ff; }
+        
+        #adminBtn {
+            position: absolute; top: 20px; right: 20px; background-color: #ff3333;
+            color: white; border: none; padding: 8px 15px; border-radius: 5px;
+            cursor: pointer; font-weight: bold;
+        }
+        
+        .container {
+            max-width: 900px; margin: auto; background: white; padding: 30px;
+            border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #003366; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 5px; box-sizing: border-box; font-size: 14px;
+        }
+        
+        .btn-add { background-color: #0066cc; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-submit { background-color: #009933; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; display: none; margin-bottom: 10px; }
+        .btn-whatsapp { background-color: #25D366; color: white; border: none; padding: 15px 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; display: none; text-align: center; text-decoration: none; box-sizing: border-box;}
+        
+        #addedItems { background: #f1f8ff; padding: 15px; border-radius: 5px; margin-bottom: 15px; display: none; border: 1px solid #cce0ff;}
+        #successMsg { color: #009933; font-weight: bold; text-align: center; margin-bottom: 15px; display: none; font-size: 18px;}
+        #loadingMsg { color: #cc6600; font-weight: bold; text-align: center; display: none; }
+        
+        /* Admin Section Styles */
+        #loginSection, #adminPanel { display: none; margin-top: 20px; padding: 20px; border: 2px dashed #003366; border-radius: 8px; background-color: #f9f9f9; }
+        .admin-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .admin-box { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .admin-box h4 { margin-top: 0; color: #003366; border-bottom: 1px solid #ddd; padding-bottom: 5px;}
+        .admin-box input, .admin-box select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .admin-btn { padding: 8px; background: #009933; color: white; border: none; cursor:pointer; font-weight:bold; width: 100%; border-radius: 4px; }
+        .back-btn { background-color: #666; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-bottom: 15px; }
+        
+        /* Admin Field Management */
+        .field-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; border-radius: 4px; background: #fafafa; }
+        .field-actions { display: flex; gap: 5px; }
+        .move-btn { background: #e0eafc; border: 1px solid #a8c1f0; cursor: pointer; padding: 5px 8px; border-radius: 3px; font-size: 14px; }
+        .action-btn { color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .btn-del { background: #ff3333; }
+        .btn-edit { background: #ffaa00; }
+        
+        /* Data Table Styles */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #003366; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Bandhan Bank Ltd.</h1>
+        <h2>Moradabad Cluster</h2>
+        <p>Rashid Hussain | 9720 110030</p>
+        <button id="adminBtn" onclick="showLogin()">Admin</button>
+    </div>
+
+    <div class="container" id="mainContainer">
+        
+        <!-- USER FORM SECTION -->
+        <div id="userFormSection">
+            <h3 style="color: #003366; border-bottom: 2px solid #ffcc00; padding-bottom: 5px;">Asset Entry Form</h3>
+            
+            <div id="dynamicFormContainer">
+                <!-- Form fields will auto-generate here -->
+            </div>
+
+            <button type="button" class="btn-add" onclick="addAssetToCart()">➕ Add This Item</button>
+            
+            <div id="addedItems">
+                <h4 style="margin-top: 0;">Items Ready to Submit: <span id="itemCount">0</span></h4>
+                <ul id="itemList" style="margin: 0; padding-left: 20px;"></ul>
+            </div>
+
+            <p id="loadingMsg">Saving data securely to database... Please wait ⏳</p>
+            <button type="button" class="btn-submit" id="finalSubmitBtn" onclick="finalSubmit()">✅ Final Submit</button>
+            
+            <p id="successMsg">Aapki request database me submit kar di gai hai, please share on WhatsApp 👇</p>
+            <a id="whatsappBtn" class="btn-whatsapp" href="#" target="_blank">📲 Share on WhatsApp</a>
+        </div>
+
+        <!-- ADMIN LOGIN SECTION -->
+        <div id="loginSection">
+            <button class="back-btn" onclick="showUserForm()">⬅ Back</button>
+            <h3>Admin Verification</h3>
+            <div class="form-group">
+                <input type="password" id="adminPasswordInput" placeholder="Enter Admin Password">
+            </div>
+            <button class="btn-add" style="background-color: #003366;" onclick="verifyAdmin()">Login</button>
+        </div>
+
+        <!-- ADMIN DASHBOARD -->
+        <div id="adminPanel">
+            <button class="back-btn" onclick="showUserForm()">⬅ Logout / Back to Home</button>
+            <h3 style="color: #cc0000; margin-top: 0;">Admin Dashboard</h3>
+            
+            <div class="admin-controls">
+                
+                <!-- Manage Dropdowns -->
+                <div class="admin-box" style="grid-column: span 2;">
+                    <h4>Manage Dropdown Options (Add, Edit, Delete)</h4>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="targetDropdown" onchange="renderDropdownOptions()" style="margin-bottom:0; flex: 1;">
+                            <!-- Auto filled with select fields -->
+                        </select>
+                        <input type="text" id="newDropdownVal" placeholder="Add new option value" style="margin-bottom:0; flex: 2;">
+                        <button class="admin-btn" onclick="addDropdownOption()" style="flex: 1;">➕ Add</button>
+                    </div>
+                    <div id="dropdownItemsList" style="background: #f1f8ff; border: 1px solid #cce0ff; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;">
+                        <!-- Items rendered here -->
+                    </div>
+                </div>
+
+                <div class="admin-box">
+                    <h4>Add New Form Field</h4>
+                    <input type="text" id="newFieldLabel" placeholder="Field Name (e.g. Remarks)">
+                    <select id="newFieldType">
+                        <option value="text">Text Input</option>
+                        <option value="number">Number Input</option>
+                    </select>
+                    <button class="admin-btn" style="background: #0066cc;" onclick="addNewField()">Create Field</button>
+                </div>
+
+                <div class="admin-box">
+                    <h4>Change Admin Password</h4>
+                    <input type="password" id="newPassword" placeholder="New Password (e.g. 12/07/1994)">
+                    <button class="admin-btn" style="background: #ffcc00; color: #333;" onclick="changePassword()">Update Password</button>
+                </div>
+
+                <div class="admin-box" style="grid-column: span 2;">
+                    <h4>Manage & Rearrange Fields</h4>
+                    <p style="font-size: 13px; color: #666; margin-top: 0;">Form layout ko ⬆️ ⬇️ move ya delete karein.</p>
+                    <div id="manageFieldsList">
+                        <!-- Field rows setting -->
+                    </div>
+                </div>
+
+                <!-- VIEW SUBMITTED DATA -->
+                <div class="admin-box" style="grid-column: span 2; overflow-x: auto;">
+                    <h4>View Submitted Records (Live from Database)</h4>
+                    <button class="admin-btn" style="width: auto; margin-bottom: 10px; background: #0066cc;" onclick="fetchSubmittedData()">🔄 Refresh Data</button>
+                    <table id="submittedDataTable">
+                        <thead id="dataHead">
+                        </thead>
+                        <tbody id="dataBody">
+                            <tr><td colspan="10" style="text-align:center;">Click Refresh to load data from Firebase...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION (Aap apni keys yahan daal lein) ---
+        const firebaseConfig = {
+    apiKey: "AIzaSyBMvhovRFZd5avo5lclQUr0Zs6ZotBcHfo",
+    authDomain: "it-asset-management-3c20a.firebaseapp.com",
+    databaseURL: "https://it-asset-management-3c20a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "it-asset-management-3c20a",
+    storageBucket: "it-asset-management-3c20a.firebasestorage.app",
+    messagingSenderId: "719073462365",
+    appId: "1:719073462365:web:5da84810356762c875a5b4",
+    measurementId: "G-K1EQ2JH5M1"
+  };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // --- 2. DEFAULT DATA SETUP (Company Name 100% Below Asset Type) ---
+        const defaultData = {
+            adminPass: "142212",
+            fields: [
+                { id: "buName", label: "BU Name", type: "select", options: ["1. Moradabad Main", "2. Chandausi Branch", "3. Amroha Branch"] },
+                { id: "buId", label: "BU ID", type: "text" },
+                { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV"] },
+                { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer"] }, // Yah Dekhiye, Asset Type ke theek niche!
+                { id: "berpTicket", label: "BERP Ticket Number", type: "text" },
+                { id: "fruNo", label: "Bandhan FRU No.", type: "text" },
+                { id: "serialNo", label: "System Serial No.", type: "text" }
+            ]
+        };
+
+        // Cache bypass karne ke liye naya storage key: 'assetAppData_V3'
+        let appData = JSON.parse(localStorage.getItem('assetAppData_V3')) || defaultData;
+        let cartItems = [];
+
+        function saveData() {
+            localStorage.setItem('assetAppData_V3', JSON.stringify(appData));
+        }
+
+        // --- 3. RENDER USER FORM ---
+        function renderForm() {
+            const container = document.getElementById('dynamicFormContainer');
+            container.innerHTML = ''; 
+
+            appData.fields.forEach(field => {
+                let html = `<div class="form-group" id="group_${field.id}">
+                                <label>${field.label}</label>`;
+                
+                if (field.type === 'select') {
+                    html += `<select id="${field.id}">`;
+                    html += `<option value="">-- Select ${field.label} --</option>`;
+                    field.options.forEach(opt => {
+                        html += `<option value="${opt}">${opt}</option>`;
+                    });
+                    html += `</select>`;
+                } else {
+                    html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
+                }
+                html += `</div>`;
+                container.innerHTML += html;
+            });
+            
+            if(document.getElementById('adminPanel').style.display === 'block') {
+                populateAdminDropdownSelect();
+                renderAdminManageFields();
+            }
+        }
+
+        // --- 4. DROPDOWN OPTIONS MANAGER ---
+        function populateAdminDropdownSelect() {
+            const selectEl = document.getElementById('targetDropdown');
+            const currentVal = selectEl.value; 
+            selectEl.innerHTML = '';
+            
+            appData.fields.forEach(f => {
+                if(f.type === 'select') {
+                    selectEl.innerHTML += `<option value="${f.id}">${f.label}</option>`;
+                }
+            });
+            
+            if(currentVal && appData.fields.find(f => f.id === currentVal)) {
+                selectEl.value = currentVal;
+            }
+            renderDropdownOptions();
+        }
+
+        function renderDropdownOptions() {
+            const targetId = document.getElementById('targetDropdown').value;
+            const listDiv = document.getElementById('dropdownItemsList');
+            listDiv.innerHTML = '';
+            
+            if(!targetId) return;
+
+            const field = appData.fields.find(f => f.id === targetId);
+            if(field.options.length === 0) {
+                listDiv.innerHTML = '<p style="color:#666; margin:0;">No options added yet.</p>';
+                return;
+            }
+
+            field.options.forEach((opt, index) => {
+                listDiv.innerHTML += `
+                    <div class="field-row" style="background: white;">
+                        <span>${opt}</span>
+                        <div class="field-actions">
+                            <button class="action-btn btn-edit" onclick="editOption('${field.id}', ${index})">Edit</button>
+                            <button class="action-btn btn-del" onclick="deleteOption('${field.id}', ${index})">Delete</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function addDropdownOption() {
+            const targetId = document.getElementById('targetDropdown').value;
+            let val = document.getElementById('newDropdownVal').value.trim();
+            
+            if (val && targetId) {
+                const fieldIndex = appData.fields.findIndex(f => f.id === targetId);
+                appData.fields[fieldIndex].options.push(val);
+                saveData();
+                document.getElementById('newDropdownVal').value = '';
+                renderDropdownOptions();
+                renderForm(); 
+            }
+        }
+
+        function editOption(fieldId, optionIndex) {
+            const fieldIndex = appData.fields.findIndex(f => f.id === fieldId);
+            const oldVal = appData.fields[fieldIndex].options[optionIndex];
+            const newVal = prompt("Edit the option name:", oldVal);
+            
+            if(newVal !== null && newVal.trim() !== "") {
+                appData.fields[fieldIndex].options[optionIndex] = newVal.trim();
+                saveData();
+                renderDropdownOptions();
+                renderForm();
+            }
+        }
+
+        function deleteOption(fieldId, optionIndex) {
+            if(confirm("Are you sure you want to delete this option?")) {
+                const fieldIndex = appData.fields.findIndex(f => f.id === fieldId);
+                appData.fields[fieldIndex].options.splice(optionIndex, 1);
+                saveData();
+                renderDropdownOptions();
+                renderForm();
+            }
+        }
+
+        // --- 5. FIELD REARRANGE / DELETE ---
+        function renderAdminManageFields() {
+            const list = document.getElementById('manageFieldsList');
+            list.innerHTML = '';
+            
+            appData.fields.forEach((field, index) => {
+                let upBtn = index > 0 ? `<button class="move-btn" onclick="moveField(${index}, -1)" title="Move Up">⬆️</button>` : `<button class="move-btn" style="visibility:hidden;">⬆️</button>`;
+                let downBtn = index < appData.fields.length - 1 ? `<button class="move-btn" onclick="moveField(${index}, 1)" title="Move Down">⬇️</button>` : `<button class="move-btn" style="visibility:hidden;">⬇️</button>`;
+                
+                list.innerHTML += `
+                    <div class="field-row">
+                        <div><strong>${field.label}</strong> <span style="color:#666; font-size:12px;">(${field.type})</span></div>
+                        <div class="field-actions">
+                            ${upBtn}
+                            ${downBtn}
+                            <button class="action-btn btn-del" onclick="deleteField('${field.id}')">Delete</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function moveField(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex >= 0 && newIndex < appData.fields.length) {
+                let temp = appData.fields[index];
+                appData.fields[index] = appData.fields[newIndex];
+                appData.fields[newIndex] = temp;
+                saveData();
+                renderForm();
+            }
+        }
+
+        function deleteField(idToRemove) {
+            if(confirm("Are you sure you want to delete this entire field?")) {
+                appData.fields = appData.fields.filter(f => f.id !== idToRemove);
+                saveData();
+                renderForm();
+            }
+        }
+
+        function addNewField() {
+            const label = document.getElementById('newFieldLabel').value.trim();
+            const type = document.getElementById('newFieldType').value;
+            
+            if (label) {
+                const newId = 'custom_' + Date.now(); 
+                const newField = { id: newId, label: label, type: type };
+                if(type === 'select') newField.options = [];
+                
+                appData.fields.push(newField);
+                saveData();
+                alert("New Field Added! Ab aap dropdown manager se isme options add kar sakte hain.");
+                document.getElementById('newFieldLabel').value = '';
+                renderForm();
+            }
+        }
+
+        // --- 6. ADD TO CART & FIREBASE SUBMIT ---
+        function addAssetToCart() {
+            let itemData = {};
+            let isComplete = true;
+
+            appData.fields.forEach(field => {
+                const val = document.getElementById(field.id).value;
+                if (!val) isComplete = false;
+                itemData[field.label] = val;
+            });
+
+            if (!isComplete) {
+                alert("Please fill all fields before adding.");
+                return;
+            }
+
+            itemData['Timestamp'] = new Date().toLocaleString();
+            cartItems.push(itemData);
+            updateCartUI();
+            
+            appData.fields.forEach(field => {
+                if (field.type !== 'select') document.getElementById(field.id).value = '';
+            });
+        }
+
+        function updateCartUI() {
+            const addedDiv = document.getElementById('addedItems');
+            const submitBtn = document.getElementById('finalSubmitBtn');
+            const itemList = document.getElementById('itemList');
+            const countSpan = document.getElementById('itemCount');
+
+            if (cartItems.length > 0) {
+                addedDiv.style.display = 'block';
+                submitBtn.style.display = 'block';
+                countSpan.innerText = cartItems.length;
+                
+                itemList.innerHTML = '';
+                cartItems.forEach((item, index) => {
+                    let itemName = item['Company Name'] ? item['Company Name'] : "";
+                    let assetType = item['Asset Type'] ? item['Asset Type'] : "Item";
+                    itemList.innerHTML += `<li>${index + 1}. ${itemName} ${assetType} added</li>`;
+                });
+            }
+        }
+
+        async function finalSubmit() {
+            document.getElementById('finalSubmitBtn').style.display = 'none';
+            document.getElementById('loadingMsg').style.display = 'block';
+            document.querySelector('.btn-add').style.display = 'none';
+
+            try {
+                for (const item of cartItems) {
+                    await db.collection("asset_records").add(item);
+                }
+
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('successMsg').style.display = 'block';
+                
+                let waText = `*New Asset Entry*\n_Submitted by: Rashid Hussain_\n\n`;
+                cartItems.forEach((item, index) => {
+                    waText += `*--- Item ${index + 1} ---*\n`;
+                    appData.fields.forEach(f => {
+                        if(item[f.label]) {
+                            waText += `*${f.label}:* ${item[f.label]}\n`;
+                        }
+                    });
+                    waText += `\n`;
+                });
+
+                const waBtn = document.getElementById('whatsappBtn');
+                waBtn.style.display = 'block';
+                waBtn.href = `https://wa.me/919720110030?text=${encodeURIComponent(waText)}`;
+
+            } catch (error) {
+                console.error("Error saving to Firebase: ", error);
+                alert("Database me save karne me error aayi. Please apni Firebase config details check karein.");
+                document.getElementById('finalSubmitBtn').style.display = 'block';
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.querySelector('.btn-add').style.display = 'block';
+            }
+        }
+
+        // --- 7. FETCH & SHOW LIVE DATA FROM FIREBASE ---
+        async function fetchSubmittedData() {
+            const dataBody = document.getElementById('dataBody');
+            const dataHead = document.getElementById('dataHead');
+            
+            dataBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Fetching data...</td></tr>`;
+            
+            try {
+                const snapshot = await db.collection("asset_records").orderBy("Timestamp", "desc").get();
+                
+                if (snapshot.empty) {
+                    dataHead.innerHTML = '';
+                    dataBody.innerHTML = `<tr><td style="text-align:center;">No records found in database.</td></tr>`;
+                    return;
+                }
+
+                let allRecords = [];
+                let uniqueKeys = new Set();
+                uniqueKeys.add("Timestamp"); 
+
+                snapshot.forEach(doc => {
+                    let data = doc.data();
+                    allRecords.push(data);
+                    Object.keys(data).forEach(key => uniqueKeys.add(key));
+                });
+
+                let headersHtml = "<tr>";
+                uniqueKeys.forEach(key => {
+                    headersHtml += `<th>${key}</th>`;
+                });
+                headersHtml += "</tr>";
+                dataHead.innerHTML = headersHtml;
+
+                let rowsHtml = "";
+                allRecords.forEach(record => {
+                    rowsHtml += "<tr>";
+                    uniqueKeys.forEach(key => {
+                        rowsHtml += `<td>${record[key] ? record[key] : '-'}</td>`;
+                    });
+                    rowsHtml += "</tr>";
+                });
+                dataBody.innerHTML = rowsHtml;
+
+            } catch (error) {
+                console.error("Fetch Data Error:", error);
+                dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Error fetching data. Check Firebase setup.</td></tr>`;
+            }
+        }
+
+        // --- 8. ADMIN LOGIN & AUTH ---
+        function showLogin() {
+            document.getElementById('userFormSection').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('adminBtn').style.display = 'none';
+        }
+
+        function showUserForm() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('userFormSection').style.display = 'block';
+            document.getElementById('adminBtn').style.display = 'block';
+            
+            document.getElementById('successMsg').style.display = 'none';
+            document.getElementById('loadingMsg').style.display = 'none';
+            document.getElementById('whatsappBtn').style.display = 'none';
+            document.querySelector('.btn-add').style.display = 'block';
+            cartItems = [];
+            updateCartUI();
+            document.getElementById('addedItems').style.display = 'none';
+            renderForm();
+        }
+
+        function verifyAdmin() {
+            if (document.getElementById('adminPasswordInput').value === appData.adminPass) {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('adminPanel').style.display = 'block';
+                document.getElementById('adminPasswordInput').value = '';
+                
+                populateAdminDropdownSelect();
+                renderAdminManageFields();
+                fetchSubmittedData();
+            } else {
+                alert("Incorrect Password!");
+            }
+        }
+
+        function changePassword() {
+            const val = document.getElementById('newPassword').value;
+            if (val) {
+                appData.adminPass = val;
+                saveData();
+                alert("Password changed successfully!");
+                document.getElementById('newPassword').value = '';
+            }
+        }
+
+        window.onload = function() {
+            renderForm();
+        };
+
+    </script>
+</body>
+</html>
