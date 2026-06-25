@@ -180,23 +180,45 @@
             ]
         };
 
-        // SMART DATA MERGE: User ka saved data check karo aur naye fields/hidden property add karo
-        let appData = JSON.parse(localStorage.getItem('assetAppData_V4'));
-        if (!appData) {
-            appData = defaultData;
-        } else {
-            // Check if problems field exists, if not, add it
+        let appData = defaultData; // Global Object
+        let cartItems = [];
+
+        // CENTRALIZED SAVE ENGINE: Saves to LocalStorage as backup AND uploads directly to Firestore Cloud Doc
+        function saveData() {
+            localStorage.setItem('assetAppData_V5', JSON.stringify(appData));
+            db.collection("app_settings").doc("form_config").set(appData)
+              .then(() => { console.log("Form settings synchronized globally with Firebase Cloud!"); })
+              .catch((error) => { console.error("Cloud synchronization failure: ", error); });
+        }
+
+        // GLOBAL LOAD ENGINE: Fetches configuration schema from Firebase before rendering to any client device
+        async function initializeFormEngine() {
+            const container = document.getElementById('dynamicFormContainer');
+            container.innerHTML = '<p style="text-align:center; color:#003366; font-weight:bold;">Loading Form Options from Central Cloud Database... ⏳</p>';
+            
+            try {
+                let docSnap = await db.collection("app_settings").doc("form_config").get();
+                if (docSnap.exists) {
+                    appData = docSnap.data();
+                } else {
+                    // Initialize document on cloud if not exists
+                    appData = defaultData;
+                    await db.collection("app_settings").doc("form_config").set(defaultData);
+                }
+            } catch (error) {
+                console.error("Firebase fetch error, falling back to local snapshot sync:", error);
+                appData = JSON.parse(localStorage.getItem('assetAppData_V5')) || defaultData;
+            }
+
+            // Data Structure Integrity Logic
             if (!appData.fields.some(f => f.id === 'problems')) {
                 appData.fields.push(defaultData.fields.find(f => f.id === 'problems'));
             }
-            // Ensure all fields have hidden property so old data doesn't crash
             appData.fields.forEach(f => {
                 if (typeof f.hidden === 'undefined') f.hidden = false;
             });
-        }
 
-        function saveData() {
-            localStorage.setItem('assetAppData_V4', JSON.stringify(appData));
+            renderForm();
         }
 
         function renderForm() {
@@ -204,7 +226,7 @@
             container.innerHTML = ''; 
             
             appData.fields.forEach(field => {
-                if (field.hidden) return; // HIDDEN fields skip ho jayenge
+                if (field.hidden) return; // Skip rendering hidden rows
 
                 let html = `<div class="form-group" id="group_${field.id}"><label>${field.label}</label>`;
                 if (field.type === 'select') {
@@ -215,10 +237,9 @@
                     html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
                 }
                 
-                // CONDITIONS FOR "OTHER PROBLEM"
                 if (field.id === 'problems') {
                     html += `<div id="otherProblemDiv" style="display:none; margin-top:10px;">
-                                <label style="color:#cc0000; font-size:13px;">Specify Other Problem:</label>
+                                <label style="color:#cc0000; font-size:13px; font-weight:bold;">Specify Other Problem:</label>
                                 <input type="text" id="otherProblemInput" placeholder="Manually type the problem details here...">
                              </div>`;
                 }
@@ -227,7 +248,7 @@
                 container.innerHTML += html;
             });
 
-            // ADD LISTENER FOR PROBLEMS DROPDOWN
+            // "Other Problem" Conditional Box Logic Trigger
             let probSelect = document.getElementById('problems');
             if (probSelect) {
                 probSelect.addEventListener('change', function() {
@@ -237,7 +258,7 @@
                         otherDiv.style.display = 'block';
                     } else {
                         otherDiv.style.display = 'none';
-                        otherInput.value = ''; // clear if closed
+                        otherInput.value = ''; 
                     }
                 });
             }
@@ -283,6 +304,12 @@
             let val = document.getElementById('newDropdownVal').value.trim();
             if (val && targetId) {
                 const fieldIndex = appData.fields.findIndex(f => f.id === targetId);
+                
+                if (targetId === 'buName') {
+                    const currentCount = appData.fields[fieldIndex].options.length;
+                    val = `${currentCount + 1}. ${val}`;
+                }
+
                 appData.fields[fieldIndex].options.push(val);
                 saveData();
                 document.getElementById('newDropdownVal').value = '';
@@ -314,7 +341,6 @@
                 let upBtn = index > 0 ? `<button class="move-btn" onclick="moveField(${index}, -1)" title="Move Up">⬆️</button>` : `<button class="move-btn" style="visibility:hidden;">⬆️</button>`;
                 let downBtn = index < appData.fields.length - 1 ? `<button class="move-btn" onclick="moveField(${index}, 1)" title="Move Down">⬇️</button>` : `<button class="move-btn" style="visibility:hidden;">⬇️</button>`;
                 
-                // Hide / Unhide Logic Styles
                 let hideBtnText = field.hidden ? "👁️ Unhide" : "🚫 Hide";
                 let btnClass = field.hidden ? "btn-unhide" : "btn-hide";
                 let rowStyle = field.hidden ? "background: #eaeaea; opacity: 0.7;" : "background: #fafafa;";
@@ -369,16 +395,15 @@
             }
         }
 
-        // DUPLICATE CHECK AND ADD TO CART
+        // DUPLICATE RECORD SECURE LOOKUP ENGINE
         async function addAssetToCart() {
             let itemData = {}; let isComplete = true;
             
             appData.fields.forEach(field => {
-                if (field.hidden) return; // Hidden field ki value check na karein
+                if (field.hidden) return; 
                 
                 let val = document.getElementById(field.id).value.trim();
 
-                // "Other Problem" Conditional Check
                 if (field.id === 'problems' && val === 'Other Problem') {
                     let manualVal = document.getElementById('otherProblemInput').value.trim();
                     if(!manualVal) {
@@ -402,7 +427,6 @@
             let serialVal = itemData['System Serial No.'];
             let fruVal = itemData['Bandhan FRU No.'];
 
-            // 1. Check Local Cart Duplicates
             if (serialVal || fruVal) {
                 let isLocalDup = cartItems.some(i => 
                     (serialVal && i['System Serial No.'] === serialVal) || 
@@ -414,7 +438,6 @@
                 }
             }
 
-            // 2. Check Firebase Database Duplicates
             try {
                 if(serialVal) {
                     let snap = await db.collection("asset_records").where("System Serial No.", "==", serialVal).get();
@@ -432,22 +455,19 @@
                 }
             } catch(e) {
                 console.error("Duplicate Check Error: ", e);
-                alert("Internet ya Firebase se connect nahi ho pa raha hai, Duplicate check fail ho gaya.");
+                alert("Internet ya Firebase connectivity timeout. Duplicate check execution failed.");
                 resetBtn(addBtn); return;
             }
 
-            // If No Duplicate Found -> Add to Cart
             itemData['Timestamp'] = new Date().toLocaleString();
             cartItems.push(itemData); 
             updateCartUI();
             
-            // Form Reset Logic
             appData.fields.forEach(field => {
                 if (!field.hidden && field.type !== 'select') {
                     document.getElementById(field.id).value = '';
                 }
             });
-            // Also reset dynamic other problem input
             let otherInput = document.getElementById('otherProblemInput');
             if (otherInput) {
                 otherInput.value = '';
@@ -485,12 +505,13 @@
 
             try {
                 for (const item of cartItems) {
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: Firebase Rules issue.")), 10000));
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: Cloud execution network fail.")), 10000));
                     await Promise.race([db.collection("asset_records").add(item), timeoutPromise]);
                 }
 
-                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('loadingMsg').style.none = 'none';
                 document.getElementById('successMsg').style.display = 'block';
+                document.getElementById('loadingMsg').style.display = 'none';
                 
                 let waText = `*New Asset Entry*\n_Submitted by: Rashid Hussain_\n\n`;
                 cartItems.forEach((item, index) => {
@@ -503,15 +524,15 @@
                 waBtn.href = `https://wa.me/919720110030?text=${encodeURIComponent(waText)}`;
 
             } catch (error) {
-                console.error("Error saving to Firebase: ", error);
-                alert("Database Error: Kripya apne Firebase Rules ko 'true' karein.");
+                console.error("Firebase transaction fail: ", error);
+                alert("Database transactional failure. Please check Firestore permissions rules config schema.");
                 document.getElementById('finalSubmitBtn').style.display = 'block';
                 document.getElementById('loadingMsg').style.display = 'none';
                 document.getElementById('addItemBtn').style.display = 'block';
             }
         }
 
-        // FETCH, EDIT AND DELETE RECORDS
+        // LIVE LOG READER / FETCH / EDIT / CRUD ENGINE
         async function fetchSubmittedData() {
             const dataBody = document.getElementById('dataBody');
             const dataHead = document.getElementById('dataHead');
@@ -554,7 +575,7 @@
                 
             } catch (error) {
                 console.error("Fetch Data Error:", error);
-                dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Error fetching data: Firebase setup aur Rules check karein.</td></tr>`;
+                dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Synchronization error. Check network state logic metrics.</td></tr>`;
             }
         }
 
@@ -589,7 +610,7 @@
                 }
             } catch(error) {
                 console.error("Edit Record Error:", error);
-                alert("Error updating record. Check internet connection.");
+                alert("Error executing update procedure sequence.");
             }
         }
 
@@ -601,12 +622,12 @@
                     fetchSubmittedData(); 
                 } catch(error) {
                     console.error("Delete Record Error:", error);
-                    alert("Error deleting record. Check your connection.");
+                    alert("Error processing deletion command.");
                 }
             }
         }
 
-        // VIEW TOGGLES AND AUTH
+        // VIEW CONTROLLERS / SECURITY INTERACTIVE HANDLERS
         function showLogin() {
             document.getElementById('userFormSection').style.display = 'none';
             document.getElementById('adminPanel').style.display = 'none';
@@ -624,7 +645,7 @@
             document.getElementById('whatsappBtn').style.display = 'none';
             document.getElementById('addItemBtn').style.display = 'block';
             cartItems = []; updateCartUI(); document.getElementById('addedItems').style.display = 'none';
-            renderForm();
+            initializeFormEngine(); // Reload state logic parameter indexes dynamically on exit
         }
 
         function verifyAdmin() {
@@ -644,7 +665,8 @@
             }
         }
 
-        window.onload = function() { renderForm(); };
+        // Main Initialization Point
+        window.onload = function() { initializeFormEngine(); };
     </script>
 </body>
 </html>
