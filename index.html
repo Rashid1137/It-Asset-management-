@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Management - Bandhan Bank Moradabad Cluster</title>
     
+    <!-- Firebase App & Firestore SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
@@ -65,6 +66,7 @@
 
     <div class="container" id="mainContainer">
         
+        <!-- USER FORM SECTION -->
         <div id="userFormSection">
             <h3 style="color: #003366; border-bottom: 2px solid #ffcc00; padding-bottom: 5px;">Asset Entry Form</h3>
             <div id="dynamicFormContainer"></div>
@@ -83,6 +85,7 @@
             <a id="whatsappBtn" class="btn-whatsapp" href="#" target="_blank">📲 Share on WhatsApp</a>
         </div>
 
+        <!-- ADMIN LOGIN SECTION -->
         <div id="loginSection">
             <button class="back-btn" onclick="showUserForm()">⬅ Back</button>
             <h3>Admin Verification</h3>
@@ -92,6 +95,7 @@
             <button class="btn-add" style="background-color: #003366;" onclick="verifyAdmin()">Login</button>
         </div>
 
+        <!-- ADMIN DASHBOARD -->
         <div id="adminPanel">
             <button class="back-btn" onclick="showUserForm()">⬅ Logout / Back to Home</button>
             <h3 style="color: #cc0000; margin-top: 0;">Admin Dashboard</h3>
@@ -165,7 +169,7 @@
         }
         const db = firebase.firestore();
 
-        // DEFAULT DATA SETUP
+        // DEFAULT DATA SETUP (Dots removed from "Number" to fix Firebase Error)
         const defaultData = {
             adminPass: "142212",
             fields: [
@@ -174,8 +178,8 @@
                 { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV"], hidden: false },
                 { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer"], hidden: false }, 
                 { id: "berpTicket", label: "BERP Ticket Number", type: "text", hidden: false },
-                { id: "fruNo", label: "Bandhan FRU No.", type: "text", hidden: false },
-                { id: "serialNo", label: "System Serial No.", type: "text", hidden: false },
+                { id: "fruNo", label: "Bandhan FRU Number", type: "text", hidden: false },
+                { id: "serialNo", label: "System Serial Number", type: "text", hidden: false },
                 { id: "problems", label: "Problems", type: "select", options: ["No Problem", "Display Issue", "Keyboard/Mouse Issue", "Power/Booting Issue", "Slow Performance", "Other Problem"], hidden: false }
             ]
         };
@@ -183,15 +187,15 @@
         let appData = defaultData; // Global Object
         let cartItems = [];
 
-        // CENTRALIZED SAVE ENGINE: Saves to LocalStorage as backup AND uploads directly to Firestore Cloud Doc
+        // CENTRALIZED SAVE ENGINE
         function saveData() {
-            localStorage.setItem('assetAppData_V5', JSON.stringify(appData));
+            localStorage.setItem('assetAppData_V6', JSON.stringify(appData));
             db.collection("app_settings").doc("form_config").set(appData)
               .then(() => { console.log("Form settings synchronized globally with Firebase Cloud!"); })
               .catch((error) => { console.error("Cloud synchronization failure: ", error); });
         }
 
-        // GLOBAL LOAD ENGINE: Fetches configuration schema from Firebase before rendering to any client device
+        // GLOBAL LOAD ENGINE
         async function initializeFormEngine() {
             const container = document.getElementById('dynamicFormContainer');
             container.innerHTML = '<p style="text-align:center; color:#003366; font-weight:bold;">Loading Form Options from Central Cloud Database... ⏳</p>';
@@ -201,13 +205,12 @@
                 if (docSnap.exists) {
                     appData = docSnap.data();
                 } else {
-                    // Initialize document on cloud if not exists
                     appData = defaultData;
                     await db.collection("app_settings").doc("form_config").set(defaultData);
                 }
             } catch (error) {
                 console.error("Firebase fetch error, falling back to local snapshot sync:", error);
-                appData = JSON.parse(localStorage.getItem('assetAppData_V5')) || defaultData;
+                appData = JSON.parse(localStorage.getItem('assetAppData_V6')) || defaultData;
             }
 
             // Data Structure Integrity Logic
@@ -226,7 +229,7 @@
             container.innerHTML = ''; 
             
             appData.fields.forEach(field => {
-                if (field.hidden) return; // Skip rendering hidden rows
+                if (field.hidden) return; 
 
                 let html = `<div class="form-group" id="group_${field.id}"><label>${field.label}</label>`;
                 if (field.type === 'select') {
@@ -237,6 +240,7 @@
                     html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
                 }
                 
+                // CONDITIONS FOR "OTHER PROBLEM"
                 if (field.id === 'problems') {
                     html += `<div id="otherProblemDiv" style="display:none; margin-top:10px;">
                                 <label style="color:#cc0000; font-size:13px; font-weight:bold;">Specify Other Problem:</label>
@@ -248,7 +252,7 @@
                 container.innerHTML += html;
             });
 
-            // "Other Problem" Conditional Box Logic Trigger
+            // ADD LISTENER FOR PROBLEMS DROPDOWN
             let probSelect = document.getElementById('problems');
             if (probSelect) {
                 probSelect.addEventListener('change', function() {
@@ -395,7 +399,7 @@
             }
         }
 
-        // DUPLICATE RECORD SECURE LOOKUP ENGINE
+        // DUPLICATE RECORD SECURE LOOKUP ENGINE WITH SMART FIREWALL TIMEOUT BYPASS
         async function addAssetToCart() {
             let itemData = {}; let isComplete = true;
             
@@ -424,39 +428,57 @@
             addBtn.innerText = "⏳ Checking for Duplicates...";
             addBtn.disabled = true;
 
-            let serialVal = itemData['System Serial No.'];
-            let fruVal = itemData['Bandhan FRU No.'];
+            // Updated References for Duplicate Check (Dot Removed)
+            let serialVal = itemData['System Serial Number'];
+            let fruVal = itemData['Bandhan FRU Number'];
 
+            // 1. Check Local Cart Duplicates First
             if (serialVal || fruVal) {
                 let isLocalDup = cartItems.some(i => 
-                    (serialVal && i['System Serial No.'] === serialVal) || 
-                    (fruVal && i['Bandhan FRU No.'] === fruVal)
+                    (serialVal && i['System Serial Number'] === serialVal) || 
+                    (fruVal && i['Bandhan FRU Number'] === fruVal)
                 );
                 if(isLocalDup) {
-                    alert("Duplicate Entry! Ye Serial No. ya FRU No. aapne is form me pehle hi add kar liya hai.");
+                    alert("Duplicate Entry! Ye Serial Number ya FRU Number aapne is form me pehle hi add kar liya hai.");
                     resetBtn(addBtn); return;
                 }
             }
 
+            // 2. Check Firebase Database Duplicates with a 4-Second Smart Timeout Guard
             try {
-                if(serialVal) {
-                    let snap = await db.collection("asset_records").where("System Serial No.", "==", serialVal).get();
-                    if(!snap.empty) { 
-                        alert("Database Duplicate! Ye System Serial No. database me pehle se maujood hai."); 
-                        resetBtn(addBtn); return; 
-                    }
+                const checkPromises = [];
+                if (serialVal) {
+                    checkPromises.push(db.collection("asset_records").where("System Serial Number", "==", serialVal).get().then(s => ({type: 'serial', empty: s.empty})));
                 }
-                if(fruVal) {
-                    let snap = await db.collection("asset_records").where("Bandhan FRU No.", "==", fruVal).get();
-                    if(!snap.empty) { 
-                        alert("Database Duplicate! Ye Bandhan FRU No. database me pehle se maujood hai."); 
-                        resetBtn(addBtn); return; 
+                if (fruVal) {
+                    checkPromises.push(db.collection("asset_records").where("Bandhan FRU Number", "==", fruVal).get().then(s => ({type: 'fru', empty: s.empty})));
+                }
+
+                if (checkPromises.length > 0) {
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("NetworkTimeout")), 4000));
+                    const queryResults = await Promise.race([Promise.all(checkPromises), timeoutPromise]);
+                    
+                    for (let res of queryResults) {
+                        if (!res.empty) {
+                            if (res.type === 'serial') {
+                                alert("Database Duplicate! Ye System Serial Number database me pehle se maujood hai.");
+                                resetBtn(addBtn); return;
+                            }
+                            if (res.type === 'fru') {
+                                alert("Database Duplicate! Ye Bandhan FRU Number database me pehle se maujood hai.");
+                                resetBtn(addBtn); return;
+                            }
+                        }
                     }
                 }
             } catch(e) {
-                console.error("Duplicate Check Error: ", e);
-                alert("Internet ya Firebase connectivity timeout. Duplicate check execution failed.");
-                resetBtn(addBtn); return;
+                console.warn("Duplicate Check Exception (Handled): ", e);
+                if (e.message === "NetworkTimeout" || e.message.includes("permission") || e.message.includes("unauthenticated")) {
+                    alert("⚠️ Note: Bank Network/Firewall restriction ki wajah se online duplicate check slow hai. Item safely local list me add kiya ja raha hai.");
+                } else {
+                    alert("Database Alert: " + e.message);
+                    resetBtn(addBtn); return;
+                }
             }
 
             itemData['Timestamp'] = new Date().toLocaleString();
@@ -509,9 +531,8 @@
                     await Promise.race([db.collection("asset_records").add(item), timeoutPromise]);
                 }
 
-                document.getElementById('loadingMsg').style.none = 'none';
-                document.getElementById('successMsg').style.display = 'block';
                 document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('successMsg').style.display = 'block';
                 
                 let waText = `*New Asset Entry*\n_Submitted by: Rashid Hussain_\n\n`;
                 cartItems.forEach((item, index) => {
@@ -525,7 +546,7 @@
 
             } catch (error) {
                 console.error("Firebase transaction fail: ", error);
-                alert("Database transactional failure. Please check Firestore permissions rules config schema.");
+                alert("Database Error: Kripya apne Firebase Rules ko check karein ya strong network use karein.");
                 document.getElementById('finalSubmitBtn').style.display = 'block';
                 document.getElementById('loadingMsg').style.display = 'none';
                 document.getElementById('addItemBtn').style.display = 'block';
@@ -645,7 +666,7 @@
             document.getElementById('whatsappBtn').style.display = 'none';
             document.getElementById('addItemBtn').style.display = 'block';
             cartItems = []; updateCartUI(); document.getElementById('addedItems').style.display = 'none';
-            initializeFormEngine(); // Reload state logic parameter indexes dynamically on exit
+            initializeFormEngine(); 
         }
 
         function verifyAdmin() {
