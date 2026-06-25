@@ -40,12 +40,14 @@
         .admin-btn { padding: 8px; background: #009933; color: white; border: none; cursor:pointer; font-weight:bold; width: 100%; border-radius: 4px; }
         .back-btn { background-color: #666; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-bottom: 15px; }
         
-        .field-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; border-radius: 4px; background: #fafafa; }
+        .field-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #ddd; margin-bottom: 5px; border-radius: 4px; }
         .field-actions { display: flex; gap: 5px; }
         .move-btn { background: #e0eafc; border: 1px solid #a8c1f0; cursor: pointer; padding: 5px 8px; border-radius: 3px; font-size: 14px; }
         .action-btn { color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-del { background: #ff3333; }
         .btn-edit { background: #ffaa00; }
+        .btn-hide { background: #e67e22; }
+        .btn-unhide { background: #7f8c8d; }
         
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -112,7 +114,8 @@
                     <select id="newFieldType">
                         <option value="text">Text Input</option>
                         <option value="number">Number Input</option>
-                        <option value="select">Dropdown (Select)</option> </select>
+                        <option value="select">Dropdown (Select)</option>
+                    </select>
                     <button class="admin-btn" style="background: #0066cc;" onclick="addNewField()">Create Field</button>
                 </div>
 
@@ -123,8 +126,8 @@
                 </div>
 
                 <div class="admin-box" style="grid-column: span 2;">
-                    <h4>Manage & Rearrange Fields</h4>
-                    <p style="font-size: 13px; color: #666; margin-top: 0;">Form layout ko ⬆️ ⬇️ move ya delete karein.</p>
+                    <h4>Manage, Hide & Rearrange Fields</h4>
+                    <p style="font-size: 13px; color: #666; margin-top: 0;">Form layout ko ⬆️ ⬇️ move, hide/unhide ya delete karein.</p>
                     <div id="manageFieldsList"></div>
                 </div>
 
@@ -166,18 +169,31 @@
         const defaultData = {
             adminPass: "142212",
             fields: [
-                { id: "buName", label: "BU Name", type: "select", options: ["1. Moradabad Main", "2. Chandausi Branch", "3. Amroha Branch"] },
-                { id: "buId", label: "BU ID", type: "text" },
-                { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV"] },
-                { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer"] }, 
-                { id: "berpTicket", label: "BERP Ticket Number", type: "text" },
-                { id: "fruNo", label: "Bandhan FRU No.", type: "text" },
-                { id: "serialNo", label: "System Serial No.", type: "text" }
+                { id: "buName", label: "BU Name", type: "select", options: ["1. Moradabad Main", "2. Chandausi Branch", "3. Amroha Branch"], hidden: false },
+                { id: "buId", label: "BU ID", type: "text", hidden: false },
+                { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV"], hidden: false },
+                { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer"], hidden: false }, 
+                { id: "berpTicket", label: "BERP Ticket Number", type: "text", hidden: false },
+                { id: "fruNo", label: "Bandhan FRU No.", type: "text", hidden: false },
+                { id: "serialNo", label: "System Serial No.", type: "text", hidden: false },
+                { id: "problems", label: "Problems", type: "select", options: ["No Problem", "Display Issue", "Keyboard/Mouse Issue", "Power/Booting Issue", "Slow Performance", "Other Problem"], hidden: false }
             ]
         };
 
-        let appData = JSON.parse(localStorage.getItem('assetAppData_V4')) || defaultData;
-        let cartItems = [];
+        // SMART DATA MERGE: User ka saved data check karo aur naye fields/hidden property add karo
+        let appData = JSON.parse(localStorage.getItem('assetAppData_V4'));
+        if (!appData) {
+            appData = defaultData;
+        } else {
+            // Check if problems field exists, if not, add it
+            if (!appData.fields.some(f => f.id === 'problems')) {
+                appData.fields.push(defaultData.fields.find(f => f.id === 'problems'));
+            }
+            // Ensure all fields have hidden property so old data doesn't crash
+            appData.fields.forEach(f => {
+                if (typeof f.hidden === 'undefined') f.hidden = false;
+            });
+        }
 
         function saveData() {
             localStorage.setItem('assetAppData_V4', JSON.stringify(appData));
@@ -186,7 +202,10 @@
         function renderForm() {
             const container = document.getElementById('dynamicFormContainer');
             container.innerHTML = ''; 
+            
             appData.fields.forEach(field => {
+                if (field.hidden) return; // HIDDEN fields skip ho jayenge
+
                 let html = `<div class="form-group" id="group_${field.id}"><label>${field.label}</label>`;
                 if (field.type === 'select') {
                     html += `<select id="${field.id}"><option value="">-- Select ${field.label} --</option>`;
@@ -195,9 +214,34 @@
                 } else {
                     html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
                 }
+                
+                // CONDITIONS FOR "OTHER PROBLEM"
+                if (field.id === 'problems') {
+                    html += `<div id="otherProblemDiv" style="display:none; margin-top:10px;">
+                                <label style="color:#cc0000; font-size:13px;">Specify Other Problem:</label>
+                                <input type="text" id="otherProblemInput" placeholder="Manually type the problem details here...">
+                             </div>`;
+                }
+
                 html += `</div>`;
                 container.innerHTML += html;
             });
+
+            // ADD LISTENER FOR PROBLEMS DROPDOWN
+            let probSelect = document.getElementById('problems');
+            if (probSelect) {
+                probSelect.addEventListener('change', function() {
+                    let otherDiv = document.getElementById('otherProblemDiv');
+                    let otherInput = document.getElementById('otherProblemInput');
+                    if (this.value === 'Other Problem') {
+                        otherDiv.style.display = 'block';
+                    } else {
+                        otherDiv.style.display = 'none';
+                        otherInput.value = ''; // clear if closed
+                    }
+                });
+            }
+
             if(document.getElementById('adminPanel').style.display === 'block') {
                 populateAdminDropdownSelect();
                 renderAdminManageFields();
@@ -269,12 +313,31 @@
             appData.fields.forEach((field, index) => {
                 let upBtn = index > 0 ? `<button class="move-btn" onclick="moveField(${index}, -1)" title="Move Up">⬆️</button>` : `<button class="move-btn" style="visibility:hidden;">⬆️</button>`;
                 let downBtn = index < appData.fields.length - 1 ? `<button class="move-btn" onclick="moveField(${index}, 1)" title="Move Down">⬇️</button>` : `<button class="move-btn" style="visibility:hidden;">⬇️</button>`;
+                
+                // Hide / Unhide Logic Styles
+                let hideBtnText = field.hidden ? "👁️ Unhide" : "🚫 Hide";
+                let btnClass = field.hidden ? "btn-unhide" : "btn-hide";
+                let rowStyle = field.hidden ? "background: #eaeaea; opacity: 0.7;" : "background: #fafafa;";
+                let statusLabel = field.hidden ? '<span style="color:red; font-size:12px; font-weight:bold;">[HIDDEN]</span>' : '';
+
                 list.innerHTML += `
-                    <div class="field-row">
-                        <div><strong>${field.label}</strong> <span style="color:#666; font-size:12px;">(${field.type})</span></div>
-                        <div class="field-actions">${upBtn}${downBtn}<button class="action-btn btn-del" onclick="deleteField('${field.id}')">Delete</button></div>
+                    <div class="field-row" style="${rowStyle}">
+                        <div><strong>${field.label}</strong> ${statusLabel} <span style="color:#666; font-size:12px;">(${field.type})</span></div>
+                        <div class="field-actions">
+                            ${upBtn}${downBtn}
+                            <button class="action-btn ${btnClass}" onclick="toggleVisibility('${field.id}')">${hideBtnText}</button>
+                            <button class="action-btn btn-del" onclick="deleteField('${field.id}')">Delete</button>
+                        </div>
                     </div>`;
             });
+        }
+
+        function toggleVisibility(id) {
+            let field = appData.fields.find(f => f.id === id);
+            if(field) {
+                field.hidden = !field.hidden;
+                saveData(); renderForm();
+            }
         }
 
         function moveField(index, direction) {
@@ -298,8 +361,8 @@
             const label = document.getElementById('newFieldLabel').value.trim();
             const type = document.getElementById('newFieldType').value;
             if (label) {
-                const newField = { id: 'custom_' + Date.now(), label: label, type: type };
-                if(type === 'select') newField.options = []; // Required for custom dropdowns
+                const newField = { id: 'custom_' + Date.now(), label: label, type: type, hidden: false };
+                if(type === 'select') newField.options = []; 
                 appData.fields.push(newField);
                 saveData(); alert("New Field Added!");
                 document.getElementById('newFieldLabel').value = ''; renderForm();
@@ -311,11 +374,26 @@
             let itemData = {}; let isComplete = true;
             
             appData.fields.forEach(field => {
-                const val = document.getElementById(field.id).value.trim();
+                if (field.hidden) return; // Hidden field ki value check na karein
+                
+                let val = document.getElementById(field.id).value.trim();
+
+                // "Other Problem" Conditional Check
+                if (field.id === 'problems' && val === 'Other Problem') {
+                    let manualVal = document.getElementById('otherProblemInput').value.trim();
+                    if(!manualVal) {
+                        alert("Kripya 'Other Problem' ki details manually text box me fill karein.");
+                        isComplete = false;
+                    } else {
+                        val = "Other Problem: " + manualVal;
+                    }
+                }
+
                 if (!val) isComplete = false;
                 itemData[field.label] = val;
             });
-            if (!isComplete) { alert("Please fill all fields before adding."); return; }
+
+            if (!isComplete) { alert("Please fill all visible fields before adding."); return; }
 
             const addBtn = document.getElementById('addItemBtn');
             addBtn.innerText = "⏳ Checking for Duplicates...";
@@ -363,9 +441,19 @@
             cartItems.push(itemData); 
             updateCartUI();
             
+            // Form Reset Logic
             appData.fields.forEach(field => {
-                if (field.type !== 'select') document.getElementById(field.id).value = '';
+                if (!field.hidden && field.type !== 'select') {
+                    document.getElementById(field.id).value = '';
+                }
             });
+            // Also reset dynamic other problem input
+            let otherInput = document.getElementById('otherProblemInput');
+            if (otherInput) {
+                otherInput.value = '';
+                document.getElementById('otherProblemDiv').style.display = 'none';
+            }
+
             resetBtn(addBtn);
         }
 
@@ -446,19 +534,16 @@
                     Object.keys(data).forEach(key => uniqueKeys.add(key));
                 });
                 
-                // Add Headers + Actions
                 let headersHtml = "<tr>";
                 uniqueKeys.forEach(key => headersHtml += `<th>${key}</th>`);
                 headersHtml += `<th>Actions</th></tr>`;
                 dataHead.innerHTML = headersHtml;
                 
-                // Add Rows
                 let rowsHtml = "";
                 allRecords.forEach(record => {
                     rowsHtml += "<tr>";
                     uniqueKeys.forEach(key => rowsHtml += `<td>${record.data[key] ? record.data[key] : '-'}</td>`);
                     
-                    // Admin Action Buttons (Edit / Delete)
                     rowsHtml += `<td style="min-width: 120px;">
                         <button class="action-btn btn-edit" onclick="editRecord('${record.id}')" style="margin-bottom: 5px; width: 100%;">✏️ Edit</button>
                         <button class="action-btn btn-del" onclick="deleteRecord('${record.id}')" style="width: 100%;">🗑️ Delete</button>
@@ -482,7 +567,6 @@
                     let updatedData = {};
                     let isChanged = false;
                     
-                    // Prompt user for every field except Timestamp
                     for (let key in data) {
                         if(key !== "Timestamp") {
                             let newVal = prompt(`Edit value for '${key}':`, data[key]);
@@ -490,7 +574,7 @@
                                 updatedData[key] = newVal.trim();
                                 if (updatedData[key] !== data[key]) isChanged = true;
                             } else {
-                                updatedData[key] = data[key]; // Keep original if Cancel is clicked
+                                updatedData[key] = data[key]; 
                             }
                         } else {
                             updatedData[key] = data[key];
@@ -500,7 +584,7 @@
                     if (isChanged) {
                         await docRef.update(updatedData);
                         alert("Record Successfully Updated!");
-                        fetchSubmittedData(); // Auto refresh table
+                        fetchSubmittedData(); 
                     }
                 }
             } catch(error) {
@@ -514,7 +598,7 @@
                 try {
                     await db.collection("asset_records").doc(docId).delete();
                     alert("Record Successfully Deleted!");
-                    fetchSubmittedData(); // Auto refresh table
+                    fetchSubmittedData(); 
                 } catch(error) {
                     console.error("Delete Record Error:", error);
                     alert("Error deleting record. Check your connection.");
