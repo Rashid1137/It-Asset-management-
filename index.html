@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Management - Bandhan Bank Moradabad Cluster</title>
     
-    <!-- Firebase App & Firestore SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
     <style>
         /* Modern & Colorful CSS */
@@ -66,7 +67,6 @@
 
     <div class="container" id="mainContainer">
         
-        <!-- USER FORM SECTION -->
         <div id="userFormSection">
             <h3 style="color: #003366; border-bottom: 2px solid #ffcc00; padding-bottom: 5px;">Asset Entry Form</h3>
             <div id="dynamicFormContainer"></div>
@@ -85,7 +85,6 @@
             <a id="whatsappBtn" class="btn-whatsapp" href="#" target="_blank">📲 Share on WhatsApp</a>
         </div>
 
-        <!-- ADMIN LOGIN SECTION -->
         <div id="loginSection">
             <button class="back-btn" onclick="showUserForm()">⬅ Back</button>
             <h3>Admin Verification</h3>
@@ -95,7 +94,6 @@
             <button class="btn-add" style="background-color: #003366;" onclick="verifyAdmin()">Login</button>
         </div>
 
-        <!-- ADMIN DASHBOARD -->
         <div id="adminPanel">
             <button class="back-btn" onclick="showUserForm()">⬅ Logout / Back to Home</button>
             <h3 style="color: #cc0000; margin-top: 0;">Admin Dashboard</h3>
@@ -106,10 +104,31 @@
                     <h4>Manage Dropdown Options (Add, Edit, Delete)</h4>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <select id="targetDropdown" onchange="renderDropdownOptions()" style="margin-bottom:0; flex: 1;"></select>
-                        <input type="text" id="newDropdownVal" placeholder="Add new option value" style="margin-bottom:0; flex: 2;">
+                        <input type="text" id="newDropdownVal" placeholder="Add new option value (Or regular issue)" style="margin-bottom:0; flex: 2;">
                         <button class="admin-btn" onclick="addDropdownOption()" style="flex: 1;">➕ Add</button>
                     </div>
                     <div id="dropdownItemsList" style="background: #f1f8ff; border: 1px solid #cce0ff; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+
+                <div class="admin-box" style="grid-column: span 2;">
+                    <h4>🔗 Link Dropdowns (Smart / Dependent Options)</h4>
+                    <p style="font-size: 13px; color: #666; margin-top: 0;">Yahan se aap set karein ki "System Issue" chunne par uske hi problems dikhai dein.</p>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="depParentSelect" style="flex: 1;" onchange="updateDepUI()"></select>
+                        <select id="depChildSelect" style="flex: 1;" onchange="updateDepUI()"></select>
+                        <button class="admin-btn" style="flex: 1; background: #8e44ad;" onclick="linkDropdowns()">🔗 Link Fields</button>
+                        <button class="admin-btn" style="flex: 0.5; background: #e74c3c;" onclick="unlinkDropdowns()">❌ Unlink</button>
+                    </div>
+
+                    <div id="depMappingDiv" style="display: none; background: #fdfefe; border: 1px dashed #8e44ad; padding: 15px; border-radius: 5px;">
+                        <h5 style="margin-top:0; color:#003366;">Add Specific Problems for Parent Selection:</h5>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select id="depParentOptionSelect" style="flex: 1;" onchange="renderDepOptionsList()"></select>
+                            <input type="text" id="newDepOptionInput" placeholder="Specific problem (e.g. Paper Jam)" style="flex: 2;">
+                            <button class="admin-btn" style="flex: 1; background: #0066cc;" onclick="addSpecificDepOption()">➕ Add Sub-Issue</button>
+                        </div>
+                        <div id="depOptionsListContainer" style="max-height: 150px; overflow-y: auto;"></div>
+                    </div>
                 </div>
 
                 <div class="admin-box">
@@ -136,8 +155,14 @@
                 </div>
 
                 <div class="admin-box" style="grid-column: span 2; overflow-x: auto;">
-                    <h4>View Submitted Records (Edit & Delete Available)</h4>
-                    <button class="admin-btn" style="width: auto; margin-bottom: 10px; background: #0066cc;" onclick="fetchSubmittedData()">🔄 Refresh Data</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0;">View Submitted Records</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="admin-btn" style="width: auto; background: #0066cc;" onclick="fetchSubmittedData()">🔄 Refresh</button>
+                            <button class="admin-btn" style="width: auto; background: #27ae60;" onclick="exportToExcel()">📊 Download Excel</button>
+                        </div>
+                    </div>
+                    
                     <table id="submittedDataTable">
                         <thead id="dataHead"></thead>
                         <tbody id="dataBody">
@@ -169,18 +194,32 @@
         }
         const db = firebase.firestore();
 
-        // DEFAULT DATA SETUP (Dots removed from "Number" to fix Firebase Error)
+        // DEFAULT DATA SETUP WITH DEPENDENT LOGIC MAPPED ALREADY
         const defaultData = {
             adminPass: "142212",
             fields: [
                 { id: "buName", label: "BU Name", type: "select", options: ["1. Moradabad Main", "2. Chandausi Branch", "3. Amroha Branch"], hidden: false },
                 { id: "buId", label: "BU ID", type: "text", hidden: false },
-                { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV"], hidden: false },
-                { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer"], hidden: false }, 
+                { id: "assetType", label: "Asset Type", type: "select", options: ["Laptop", "Desktop", "Printer", "CCTV", "Network"], hidden: false },
+                { id: "companyName", label: "Company Name", type: "select", options: ["Lenovo", "Dell", "HP", "Acer", "CP Plus"], hidden: false }, 
                 { id: "berpTicket", label: "BERP Ticket Number", type: "text", hidden: false },
                 { id: "fruNo", label: "Bandhan FRU Number", type: "text", hidden: false },
                 { id: "serialNo", label: "System Serial Number", type: "text", hidden: false },
-                { id: "problems", label: "Problems", type: "select", options: ["No Problem", "Display Issue", "Keyboard/Mouse Issue", "Power/Booting Issue", "Slow Performance", "Other Problem"], hidden: false }
+                { 
+                    id: "problems", 
+                    label: "Problems", 
+                    type: "select", 
+                    options: ["No Problem", "Other Problem"], 
+                    parentField: "assetType", 
+                    optionsMap: {
+                        "Laptop": ["Display Issue", "Keyboard Issue", "Battery Not Charging", "OS Booting Issue", "Slow Performance"],
+                        "Desktop": ["Power Supply Issue", "Display Issue", "Motherboard Issue", "Slow Performance"],
+                        "Printer": ["Paper Jam", "Ink/Toner Empty", "Power Issue", "Print Quality Poor"],
+                        "CCTV": ["Camera Offline", "DVR Beeping", "Video Loss", "Recording Not Working"],
+                        "Network": ["Internet Down", "Router Issue", "LAN Cable Damaged"]
+                    },
+                    hidden: false 
+                }
             ]
         };
 
@@ -189,7 +228,7 @@
 
         // CENTRALIZED SAVE ENGINE
         function saveData() {
-            localStorage.setItem('assetAppData_V6', JSON.stringify(appData));
+            localStorage.setItem('assetAppData_V7', JSON.stringify(appData));
             db.collection("app_settings").doc("form_config").set(appData)
               .then(() => { console.log("Form settings synchronized globally with Firebase Cloud!"); })
               .catch((error) => { console.error("Cloud synchronization failure: ", error); });
@@ -210,7 +249,7 @@
                 }
             } catch (error) {
                 console.error("Firebase fetch error, falling back to local snapshot sync:", error);
-                appData = JSON.parse(localStorage.getItem('assetAppData_V6')) || defaultData;
+                appData = JSON.parse(localStorage.getItem('assetAppData_V7')) || defaultData;
             }
 
             // Data Structure Integrity Logic
@@ -234,7 +273,10 @@
                 let html = `<div class="form-group" id="group_${field.id}"><label>${field.label}</label>`;
                 if (field.type === 'select') {
                     html += `<select id="${field.id}"><option value="">-- Select ${field.label} --</option>`;
-                    field.options.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
+                    // Only load static options if it's NOT a dependent field
+                    if (!field.parentField) {
+                        if(field.options) field.options.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
+                    }
                     html += `</select>`;
                 } else {
                     html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
@@ -252,7 +294,37 @@
                 container.innerHTML += html;
             });
 
-            // ADD LISTENER FOR PROBLEMS DROPDOWN
+            // ATTACH DEPENDENT DROPDOWN LOGIC AFTER HTML IS RENDERED
+            appData.fields.forEach(field => {
+                if (field.parentField && !field.hidden) {
+                    let parentEl = document.getElementById(field.parentField);
+                    let childEl = document.getElementById(field.id);
+                    if (parentEl && childEl) {
+                        parentEl.addEventListener('change', function() {
+                            let parentVal = this.value;
+                            childEl.innerHTML = `<option value="">-- Select ${field.label} --</option>`;
+                            
+                            // 1. Add specific mapped sub-options
+                            if (field.optionsMap && field.optionsMap[parentVal]) {
+                                field.optionsMap[parentVal].forEach(opt => {
+                                    childEl.innerHTML += `<option value="${opt}">${opt}</option>`;
+                                });
+                            }
+                            
+                            // 2. Add common fallback options (Like "No Problem", "Other Problem")
+                            if (field.options) {
+                                field.options.forEach(opt => {
+                                    childEl.innerHTML += `<option value="${opt}">${opt}</option>`;
+                                });
+                            }
+                            // Trigger change on child just in case
+                            childEl.dispatchEvent(new Event('change'));
+                        });
+                    }
+                }
+            });
+
+            // ADD LISTENER FOR PROBLEMS DROPDOWN (Other Problem Display)
             let probSelect = document.getElementById('problems');
             if (probSelect) {
                 probSelect.addEventListener('change', function() {
@@ -273,26 +345,46 @@
             }
         }
 
+        // ================= ADMIN DROPDOWN LOGIC =================
+
         function populateAdminDropdownSelect() {
             const selectEl = document.getElementById('targetDropdown');
+            const pSelect = document.getElementById('depParentSelect');
+            const cSelect = document.getElementById('depChildSelect');
+            
             const currentVal = selectEl.value; 
-            selectEl.innerHTML = '';
+            const curP = pSelect.value;
+            const curC = cSelect.value;
+
+            let optsHtml = '<option value="">-- Select Field --</option>';
             appData.fields.forEach(f => {
-                if(f.type === 'select') selectEl.innerHTML += `<option value="${f.id}">${f.label}</option>`;
+                if(f.type === 'select') optsHtml += `<option value="${f.id}">${f.label}</option>`;
             });
-            if(currentVal && appData.fields.find(f => f.id === currentVal)) selectEl.value = currentVal;
+
+            selectEl.innerHTML = optsHtml;
+            pSelect.innerHTML = '<option value="">-- Parent (Main Category) --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
+            cSelect.innerHTML = '<option value="">-- Child (Sub Category) --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
+
+            if(currentVal) selectEl.value = currentVal;
+            if(curP) pSelect.value = curP;
+            if(curC) cSelect.value = curC;
+
             renderDropdownOptions();
+            updateDepUI();
         }
 
+        // 1. Regular Dropdown Options Management
         function renderDropdownOptions() {
             const targetId = document.getElementById('targetDropdown').value;
             const listDiv = document.getElementById('dropdownItemsList');
             listDiv.innerHTML = '';
             if(!targetId) return;
             const field = appData.fields.find(f => f.id === targetId);
-            if(field.options.length === 0) { listDiv.innerHTML = '<p style="color:#666; margin:0;">No options added yet.</p>'; return; }
-            field.options.forEach((opt, index) => {
-                listDiv.innerHTML += `
+            
+            let html = '';
+            if(field.options && field.options.length > 0) {
+                field.options.forEach((opt, index) => {
+                    html += `
                     <div class="field-row" style="background: white;">
                         <span>${opt}</span>
                         <div class="field-actions">
@@ -300,7 +392,11 @@
                             <button class="action-btn btn-del" onclick="deleteOption('${field.id}', ${index})">Delete</button>
                         </div>
                     </div>`;
-            });
+                });
+            } else {
+                html = '<p style="color:#666; margin:0;">No common options added.</p>';
+            }
+            listDiv.innerHTML = html;
         }
 
         function addDropdownOption() {
@@ -310,10 +406,11 @@
                 const fieldIndex = appData.fields.findIndex(f => f.id === targetId);
                 
                 if (targetId === 'buName') {
-                    const currentCount = appData.fields[fieldIndex].options.length;
+                    const currentCount = appData.fields[fieldIndex].options ? appData.fields[fieldIndex].options.length : 0;
                     val = `${currentCount + 1}. ${val}`;
                 }
 
+                if(!appData.fields[fieldIndex].options) appData.fields[fieldIndex].options = [];
                 appData.fields[fieldIndex].options.push(val);
                 saveData();
                 document.getElementById('newDropdownVal').value = '';
@@ -338,6 +435,105 @@
             }
         }
 
+        // 2. Dependent (Smart) Dropdown Logic
+        function updateDepUI() {
+            const pId = document.getElementById('depParentSelect').value;
+            const cId = document.getElementById('depChildSelect').value;
+            const mapDiv = document.getElementById('depMappingDiv');
+            const pOptSelect = document.getElementById('depParentOptionSelect');
+
+            if (!pId || !cId) { mapDiv.style.display = 'none'; return; }
+
+            const childField = appData.fields.find(f => f.id === cId);
+            const parentField = appData.fields.find(f => f.id === pId);
+
+            if (childField.parentField === pId) {
+                mapDiv.style.display = 'block';
+                // Populate parent options
+                pOptSelect.innerHTML = '<option value="">-- Select Parent Option First --</option>';
+                if(parentField.options) {
+                    parentField.options.forEach(opt => {
+                        pOptSelect.innerHTML += `<option value="${opt}">${opt}</option>`;
+                    });
+                }
+                renderDepOptionsList();
+            } else {
+                mapDiv.style.display = 'none';
+            }
+        }
+
+        function linkDropdowns() {
+            const pId = document.getElementById('depParentSelect').value;
+            const cId = document.getElementById('depChildSelect').value;
+            if (!pId || !cId) { alert("Please select both Parent and Child fields."); return; }
+            if (pId === cId) { alert("Parent and Child cannot be the same field."); return; }
+
+            const cIndex = appData.fields.findIndex(f => f.id === cId);
+            appData.fields[cIndex].parentField = pId;
+            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {};
+            
+            saveData(); alert("Fields Linked Successfully!"); renderForm(); updateDepUI();
+        }
+
+        function unlinkDropdowns() {
+            const cId = document.getElementById('depChildSelect').value;
+            if (!cId) return;
+            const cIndex = appData.fields.findIndex(f => f.id === cId);
+            delete appData.fields[cIndex].parentField;
+            saveData(); alert("Fields Unlinked!"); renderForm(); updateDepUI();
+        }
+
+        function renderDepOptionsList() {
+            const cId = document.getElementById('depChildSelect').value;
+            const pOpt = document.getElementById('depParentOptionSelect').value;
+            const listDiv = document.getElementById('depOptionsListContainer');
+            
+            listDiv.innerHTML = '';
+            if (!cId || !pOpt) return;
+
+            const childField = appData.fields.find(f => f.id === cId);
+            if (childField.optionsMap && childField.optionsMap[pOpt] && childField.optionsMap[pOpt].length > 0) {
+                childField.optionsMap[pOpt].forEach((subOpt, index) => {
+                    listDiv.innerHTML += `
+                    <div class="field-row" style="background: white;">
+                        <span>${subOpt}</span>
+                        <div class="field-actions">
+                            <button class="action-btn btn-del" onclick="deleteSpecificDepOption('${cId}', '${pOpt}', ${index})">Delete</button>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                listDiv.innerHTML = '<p style="color:#666; margin:0;">No specific issues mapped for this option yet.</p>';
+            }
+        }
+
+        function addSpecificDepOption() {
+            const cId = document.getElementById('depChildSelect').value;
+            const pOpt = document.getElementById('depParentOptionSelect').value;
+            const val = document.getElementById('newDepOptionInput').value.trim();
+
+            if (!cId || !pOpt || !val) { alert("Please select parent option and type a sub-issue."); return; }
+
+            const cIndex = appData.fields.findIndex(f => f.id === cId);
+            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {};
+            if (!appData.fields[cIndex].optionsMap[pOpt]) appData.fields[cIndex].optionsMap[pOpt] = [];
+
+            appData.fields[cIndex].optionsMap[pOpt].push(val);
+            saveData();
+            document.getElementById('newDepOptionInput').value = '';
+            renderDepOptionsList(); renderForm();
+        }
+
+        function deleteSpecificDepOption(cId, pOpt, index) {
+            if(confirm("Delete this sub-option?")) {
+                const cIndex = appData.fields.findIndex(f => f.id === cId);
+                appData.fields[cIndex].optionsMap[pOpt].splice(index, 1);
+                saveData(); renderDepOptionsList(); renderForm();
+            }
+        }
+
+        // ================= FIELD MANAGEMENT =================
+
         function renderAdminManageFields() {
             const list = document.getElementById('manageFieldsList');
             list.innerHTML = '';
@@ -349,10 +545,11 @@
                 let btnClass = field.hidden ? "btn-unhide" : "btn-hide";
                 let rowStyle = field.hidden ? "background: #eaeaea; opacity: 0.7;" : "background: #fafafa;";
                 let statusLabel = field.hidden ? '<span style="color:red; font-size:12px; font-weight:bold;">[HIDDEN]</span>' : '';
+                let linkLabel = field.parentField ? `<span style="color:#8e44ad; font-size:11px;">[Linked to: ${field.parentField}]</span>` : '';
 
                 list.innerHTML += `
                     <div class="field-row" style="${rowStyle}">
-                        <div><strong>${field.label}</strong> ${statusLabel} <span style="color:#666; font-size:12px;">(${field.type})</span></div>
+                        <div><strong>${field.label}</strong> ${statusLabel} ${linkLabel} <span style="color:#666; font-size:12px;">(${field.type})</span></div>
                         <div class="field-actions">
                             ${upBtn}${downBtn}
                             <button class="action-btn ${btnClass}" onclick="toggleVisibility('${field.id}')">${hideBtnText}</button>
@@ -399,7 +596,8 @@
             }
         }
 
-        // DUPLICATE RECORD SECURE LOOKUP ENGINE WITH SMART FIREWALL TIMEOUT BYPASS
+        // ================= CART & SUBMISSION ENGINE =================
+
         async function addAssetToCart() {
             let itemData = {}; let isComplete = true;
             
@@ -428,11 +626,9 @@
             addBtn.innerText = "⏳ Checking for Duplicates...";
             addBtn.disabled = true;
 
-            // Updated References for Duplicate Check (Dot Removed)
             let serialVal = itemData['System Serial Number'];
             let fruVal = itemData['Bandhan FRU Number'];
 
-            // 1. Check Local Cart Duplicates First
             if (serialVal || fruVal) {
                 let isLocalDup = cartItems.some(i => 
                     (serialVal && i['System Serial Number'] === serialVal) || 
@@ -444,7 +640,6 @@
                 }
             }
 
-            // 2. Check Firebase Database Duplicates with a 4-Second Smart Timeout Guard
             try {
                 const checkPromises = [];
                 if (serialVal) {
@@ -474,7 +669,7 @@
             } catch(e) {
                 console.warn("Duplicate Check Exception (Handled): ", e);
                 if (e.message === "NetworkTimeout" || e.message.includes("permission") || e.message.includes("unauthenticated")) {
-                    alert("⚠️ Note: Bank Network/Firewall restriction ki wajah se online duplicate check slow hai. Item safely local list me add kiya ja raha hai.");
+                    alert("⚠️ Note: Bank Network restriction ki wajah se online duplicate check slow hai. Item safely local list me add kiya ja raha hai.");
                 } else {
                     alert("Database Alert: " + e.message);
                     resetBtn(addBtn); return;
@@ -553,7 +748,8 @@
             }
         }
 
-        // LIVE LOG READER / FETCH / EDIT / CRUD ENGINE
+        // ================= ADMIN DATA TABLE & EXPORT =================
+
         async function fetchSubmittedData() {
             const dataBody = document.getElementById('dataBody');
             const dataHead = document.getElementById('dataHead');
@@ -598,6 +794,36 @@
                 console.error("Fetch Data Error:", error);
                 dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Synchronization error. Check network state logic metrics.</td></tr>`;
             }
+        }
+
+        // NEW EXPORT TO EXCEL FUNCTION USING SHEETJS
+        function exportToExcel() {
+            let table = document.getElementById("submittedDataTable");
+            
+            // Check if table has data
+            if(table.rows.length <= 1 || table.rows[0].cells[0].innerText.includes("Click Refresh")) {
+                alert("Kripya pehle 'Refresh Data' button dabayein taaki records load ho sakein.");
+                return;
+            }
+
+            // Create a clone of the table so we can remove the "Actions" column before export
+            let cloneTable = table.cloneNode(true);
+            let headers = cloneTable.querySelectorAll("th");
+            if(headers.length > 0) headers[headers.length - 1].remove(); // Remove Actions header
+            
+            let rows = cloneTable.querySelectorAll("tbody tr");
+            rows.forEach(row => {
+                let cells = row.querySelectorAll("td");
+                if(cells.length > 0) cells[cells.length - 1].remove(); // Remove Action buttons cell
+            });
+
+            // Convert to Excel workbook
+            let wb = XLSX.utils.table_to_book(cloneTable, {sheet: "Asset Records"});
+            
+            // Generate exact file name with date
+            let d = new Date();
+            let dateStr = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+            XLSX.writeFile(wb, `Bandhan_Asset_Records_${dateStr}.xlsx`);
         }
 
         async function editRecord(docId) {
@@ -648,7 +874,8 @@
             }
         }
 
-        // VIEW CONTROLLERS / SECURITY INTERACTIVE HANDLERS
+        // ================= VIEW CONTROLLERS =================
+
         function showLogin() {
             document.getElementById('userFormSection').style.display = 'none';
             document.getElementById('adminPanel').style.display = 'none';
@@ -686,7 +913,7 @@
             }
         }
 
-        // Main Initialization Point
+        // Main Initialisation Point
         window.onload = function() { initializeFormEngine(); };
     </script>
 </body>
