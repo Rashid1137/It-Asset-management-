@@ -47,13 +47,28 @@
         .move-btn { background: #e0eafc; border: 1px solid #a8c1f0; cursor: pointer; padding: 5px 8px; border-radius: 3px; font-size: 14px; }
         .action-btn { color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-del { background: #ff3333; }
-        .btn-edit { background: #ffaa00; }
         .btn-hide { background: #e67e22; }
         .btn-unhide { background: #7f8c8d; }
         
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #003366; color: white; }
+
+        /* Stylish Stock Cards CSS */
+        .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 15px; }
+        .modern-stock-card {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white; padding: 15px 10px; border-radius: 10px; text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .modern-stock-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+        .modern-stock-card .qty { font-size: 26px; font-weight: 900; margin: 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+        .modern-stock-card .name { font-size: 13px; font-weight: 700; margin-top: 5px; text-transform: uppercase; word-break: break-word; }
+
+        /* Modal Styles */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -67,6 +82,7 @@
 
     <div class="container" id="mainContainer">
         
+        <!-- User Form Section -->
         <div id="userFormSection">
             <h3 style="color: #003366; border-bottom: 2px solid #ffcc00; padding-bottom: 5px;">Asset Entry Form</h3>
             <div id="dynamicFormContainer"></div>
@@ -85,6 +101,7 @@
             <a id="whatsappBtn" class="btn-whatsapp" href="#" target="_blank">📲 Share on WhatsApp</a>
         </div>
 
+        <!-- Login Section -->
         <div id="loginSection">
             <button class="back-btn" onclick="showUserForm()">⬅ Back</button>
             <h3>Admin Verification</h3>
@@ -94,17 +111,51 @@
             <button class="btn-add" style="background-color: #003366;" onclick="verifyAdmin()">Login</button>
         </div>
 
+        <!-- Admin Panel Section -->
         <div id="adminPanel">
             <button class="back-btn" onclick="showUserForm()">⬅ Logout / Back to Home</button>
             <h3 style="color: #cc0000; margin-top: 0;">Admin Dashboard</h3>
             
             <div class="admin-controls">
+
+                <!-- Stock Management System -->
+                <div class="admin-box" style="grid-column: span 2; border: 2px solid #27ae60;">
+                    <h4 style="color: #27ae60; font-size: 18px;">📦 IT Asset Stock Management System</h4>
+                    
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #fdfefe;">
+                            <h5 style="margin-top:0; color: #003366;">📊 Current Stock (Available)</h5>
+                            <div id="currentStockContainer" class="stock-grid">Loading stock...</div>
+                        </div>
+                        
+                        <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f4fcff;">
+                            <h5 style="margin-top:0; color: #003366;">📥 Add Stock (Head Office Inward)</h5>
+                            <input type="text" id="inwardItemName" placeholder="Item Name (e.g. Morpho Wire, Cartridge)">
+                            <input type="number" id="inwardQty" placeholder="Quantity to Add" min="1">
+                            <button class="admin-btn" style="background:#0066cc;" onclick="addInwardStock()">➕ Add to Stock</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <button class="admin-btn" style="background:#8e44ad; width: 100%; font-size: 16px;" onclick="toggleStockHistory()">📜 Show / Hide Stock History</button>
+                        <div id="stockHistoryContainer" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;">
+                            <table>
+                                <thead>
+                                    <tr><th>Date & Time</th><th>Type (IN/OUT)</th><th>Item</th><th>Qty</th><th>Given To (BU Name)</th><th>BU ID / Ticket</th></tr>
+                                </thead>
+                                <tbody id="stockHistoryBody">
+                                    <tr><td colspan="6" style="text-align:center;">Loading history...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="admin-box" style="grid-column: span 2;">
-                    <h4>Manage Dropdown Options (Add, Edit, Delete)</h4>
+                    <h4>Manage Dropdown Options (Add & Delete)</h4>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <select id="targetDropdown" onchange="renderDropdownOptions()" style="margin-bottom:0; flex: 1;"></select>
-                        <input type="text" id="newDropdownVal" placeholder="Add new option value (Or regular issue)" style="margin-bottom:0; flex: 2;">
+                        <input type="text" id="newDropdownVal" placeholder="Add new option value" style="margin-bottom:0; flex: 2;">
                         <button class="admin-btn" onclick="addDropdownOption()" style="flex: 1;">➕ Add</button>
                     </div>
                     <div id="dropdownItemsList" style="background: #f1f8ff; border: 1px solid #cce0ff; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto;"></div>
@@ -112,14 +163,12 @@
 
                 <div class="admin-box" style="grid-column: span 2;">
                     <h4>🔗 Link Dropdowns (Smart / Dependent Options)</h4>
-                    <p style="font-size: 13px; color: #666; margin-top: 0;">Yahan se aap set karein ki "System Issue" chunne par uske hi problems dikhai dein.</p>
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <select id="depParentSelect" style="flex: 1;" onchange="updateDepUI()"></select>
                         <select id="depChildSelect" style="flex: 1;" onchange="updateDepUI()"></select>
                         <button class="admin-btn" style="flex: 1; background: #8e44ad;" onclick="linkDropdowns()">🔗 Link Fields</button>
                         <button class="admin-btn" style="flex: 0.5; background: #e74c3c;" onclick="unlinkDropdowns()">❌ Unlink</button>
                     </div>
-
                     <div id="depMappingDiv" style="display: none; background: #fdfefe; border: 1px dashed #8e44ad; padding: 15px; border-radius: 5px;">
                         <h5 style="margin-top:0; color:#003366;">Add Specific Problems for Parent Selection:</h5>
                         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -150,30 +199,55 @@
 
                 <div class="admin-box" style="grid-column: span 2;">
                     <h4>Manage, Hide & Rearrange Fields</h4>
-                    <p style="font-size: 13px; color: #666; margin-top: 0;">Form layout ko ⬆️ ⬇️ move, hide/unhide ya delete karein.</p>
+                    <p style="font-size: 13px; color: #666; margin-top: 0;">यहाँ से डिलीट किया गया फील्ड टेबल और व्हाट्सएप से भी अपने आप हट जाएगा।</p>
                     <div id="manageFieldsList"></div>
                 </div>
 
+                <!-- Data Table Section -->
                 <div class="admin-box" style="grid-column: span 2; overflow-x: auto;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0;">View Submitted Records</h4>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #e0eafc; padding: 10px; border-radius: 5px;">
+                        <h4 style="margin: 0; cursor: pointer; color: #003366;" onclick="toggleSubmittedRecords()">📂 View Submitted Records (Click to Toggle)</h4>
                         <div style="display: flex; gap: 10px;">
                             <button class="admin-btn" style="width: auto; background: #0066cc;" onclick="fetchSubmittedData()">🔄 Refresh</button>
                             <button class="admin-btn" style="width: auto; background: #27ae60;" onclick="exportToExcel()">📊 Download Excel</button>
                         </div>
                     </div>
                     
-                    <table id="submittedDataTable">
-                        <thead id="dataHead"></thead>
-                        <tbody id="dataBody">
-                            <tr><td colspan="10" style="text-align:center;">Click Refresh to load data from Firebase...</td></tr>
-                        </tbody>
-                    </table>
+                    <div id="submittedRecordsContainer" style="display: none;">
+                        <table id="submittedDataTable">
+                            <thead id="dataHead"></thead>
+                            <tbody id="dataBody">
+                                <tr><td colspan="10" style="text-align:center;">Click Refresh to load data from Firebase...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
             </div>
         </div>
 
+    </div>
+
+    <!-- Approve & Issue Stock Modal -->
+    <div id="approveModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top: 0; color: #009933;">📦 Issue Stock (Deduction)</h3>
+            <p style="font-size: 13px; color: #666;">Is requirement ke badle kaun sa item de rahe hain?</p>
+            
+            <label style="font-weight:bold; display:block; margin-bottom:5px;">Select Stock Item:</label>
+            <select id="modalStockItem" style="width: 100%; padding: 8px; margin-bottom: 15px;"></select>
+            
+            <label style="font-weight:bold; display:block; margin-bottom:5px;">Quantity to Deduct:</label>
+            <input type="number" id="modalStockQty" value="1" min="1" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing:border-box;">
+            
+            <input type="hidden" id="modalDocId">
+            <input type="hidden" id="modalRecordData">
+
+            <div style="display:flex; gap: 10px;">
+                <button class="admin-btn" onclick="confirmApproveIssue()" style="flex:1;">Submit & Deduct</button>
+                <button class="admin-btn" onclick="closeApproveModal()" style="flex:1; background:#666;">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -189,12 +263,10 @@
             measurementId: "G-K1EQ2JH5M1"
         };
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.firestore();
 
-        // DEFAULT DATA SETUP WITH DEPENDENT LOGIC MAPPED ALREADY
+        // DEFAULT DATA SETUP
         const defaultData = {
             adminPass: "142212",
             fields: [
@@ -206,10 +278,7 @@
                 { id: "fruNo", label: "Bandhan FRU Number", type: "text", hidden: false },
                 { id: "serialNo", label: "System Serial Number", type: "text", hidden: false },
                 { 
-                    id: "problems", 
-                    label: "Problems", 
-                    type: "select", 
-                    options: ["No Problem", "Other Problem"], 
+                    id: "problems", label: "Problems", type: "select", options: ["No Problem", "Other Problem"], 
                     parentField: "assetType", 
                     optionsMap: {
                         "Laptop": ["Display Issue", "Keyboard Issue", "Battery Not Charging", "OS Booting Issue", "Slow Performance"],
@@ -217,703 +286,479 @@
                         "Printer": ["Paper Jam", "Ink/Toner Empty", "Power Issue", "Print Quality Poor"],
                         "CCTV": ["Camera Offline", "DVR Beeping", "Video Loss", "Recording Not Working"],
                         "Network": ["Internet Down", "Router Issue", "LAN Cable Damaged"]
-                    },
-                    hidden: false 
+                    }, hidden: false 
                 }
             ]
         };
 
-        let appData = defaultData; // Global Object
+        let appData = defaultData; 
         let cartItems = [];
+        let stockInventory = {}; 
 
-        // CENTRALIZED SAVE ENGINE
         function saveData() {
             localStorage.setItem('assetAppData_V7', JSON.stringify(appData));
             db.collection("app_settings").doc("form_config").set(appData)
-              .then(() => { console.log("Form settings synchronized globally with Firebase Cloud!"); })
+              .then(() => { console.log("Form settings synchronized!"); })
               .catch((error) => { console.error("Cloud synchronization failure: ", error); });
         }
 
-        // GLOBAL LOAD ENGINE
         async function initializeFormEngine() {
             const container = document.getElementById('dynamicFormContainer');
-            container.innerHTML = '<p style="text-align:center; color:#003366; font-weight:bold;">Loading Form Options from Central Cloud Database... ⏳</p>';
-            
+            container.innerHTML = '<p style="text-align:center; color:#003366; font-weight:bold;">Loading Form Options from Database... ⏳</p>';
             try {
                 let docSnap = await db.collection("app_settings").doc("form_config").get();
-                if (docSnap.exists) {
-                    appData = docSnap.data();
-                } else {
-                    appData = defaultData;
-                    await db.collection("app_settings").doc("form_config").set(defaultData);
-                }
-            } catch (error) {
-                console.error("Firebase fetch error, falling back to local snapshot sync:", error);
-                appData = JSON.parse(localStorage.getItem('assetAppData_V7')) || defaultData;
-            }
-
-            // Data Structure Integrity Logic
-            if (!appData.fields.some(f => f.id === 'problems')) {
-                appData.fields.push(defaultData.fields.find(f => f.id === 'problems'));
-            }
-            appData.fields.forEach(f => {
-                if (typeof f.hidden === 'undefined') f.hidden = false;
-            });
-
+                if (docSnap.exists) { appData = docSnap.data(); } 
+                else { appData = defaultData; await db.collection("app_settings").doc("form_config").set(defaultData); }
+            } catch (error) { appData = JSON.parse(localStorage.getItem('assetAppData_V7')) || defaultData; }
+            if (!appData.fields.some(f => f.id === 'problems')) { appData.fields.push(defaultData.fields.find(f => f.id === 'problems')); }
+            appData.fields.forEach(f => { if (typeof f.hidden === 'undefined') f.hidden = false; });
             renderForm();
         }
 
         function renderForm() {
-            const container = document.getElementById('dynamicFormContainer');
-            container.innerHTML = ''; 
-            
+            const container = document.getElementById('dynamicFormContainer'); container.innerHTML = ''; 
             appData.fields.forEach(field => {
                 if (field.hidden) return; 
-
                 let html = `<div class="form-group" id="group_${field.id}"><label>${field.label}</label>`;
                 if (field.type === 'select') {
                     html += `<select id="${field.id}"><option value="">-- Select ${field.label} --</option>`;
-                    // Only load static options if it's NOT a dependent field
-                    if (!field.parentField) {
-                        if(field.options) field.options.forEach(opt => html += `<option value="${opt}">${opt}</option>`);
-                    }
+                    if (!field.parentField) { if(field.options) field.options.forEach(opt => html += `<option value="${opt}">${opt}</option>`); }
                     html += `</select>`;
-                } else {
-                    html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`;
-                }
+                } else { html += `<input type="${field.type}" id="${field.id}" placeholder="Enter ${field.label}">`; }
                 
-                // CONDITIONS FOR "OTHER PROBLEM"
                 if (field.id === 'problems') {
                     html += `<div id="otherProblemDiv" style="display:none; margin-top:10px;">
                                 <label style="color:#cc0000; font-size:13px; font-weight:bold;">Specify Other Problem:</label>
-                                <input type="text" id="otherProblemInput" placeholder="Manually type the problem details here...">
+                                <input type="text" id="otherProblemInput" placeholder="Manually type details...">
                              </div>`;
                 }
-
-                html += `</div>`;
-                container.innerHTML += html;
+                html += `</div>`; container.innerHTML += html;
             });
 
-            // ATTACH DEPENDENT DROPDOWN LOGIC AFTER HTML IS RENDERED
             appData.fields.forEach(field => {
                 if (field.parentField && !field.hidden) {
-                    let parentEl = document.getElementById(field.parentField);
-                    let childEl = document.getElementById(field.id);
+                    let parentEl = document.getElementById(field.parentField); let childEl = document.getElementById(field.id);
                     if (parentEl && childEl) {
                         parentEl.addEventListener('change', function() {
-                            let parentVal = this.value;
-                            childEl.innerHTML = `<option value="">-- Select ${field.label} --</option>`;
-                            
-                            // 1. Add specific mapped sub-options
-                            if (field.optionsMap && field.optionsMap[parentVal]) {
-                                field.optionsMap[parentVal].forEach(opt => {
-                                    childEl.innerHTML += `<option value="${opt}">${opt}</option>`;
-                                });
-                            }
-                            
-                            // 2. Add common fallback options (Like "No Problem", "Other Problem")
-                            if (field.options) {
-                                field.options.forEach(opt => {
-                                    childEl.innerHTML += `<option value="${opt}">${opt}</option>`;
-                                });
-                            }
-                            // Trigger change on child just in case
+                            let parentVal = this.value; childEl.innerHTML = `<option value="">-- Select ${field.label} --</option>`;
+                            if (field.optionsMap && field.optionsMap[parentVal]) { field.optionsMap[parentVal].forEach(opt => { childEl.innerHTML += `<option value="${opt}">${opt}</option>`; }); }
+                            if (field.options) { field.options.forEach(opt => { childEl.innerHTML += `<option value="${opt}">${opt}</option>`; }); }
                             childEl.dispatchEvent(new Event('change'));
                         });
                     }
                 }
             });
 
-            // ADD LISTENER FOR PROBLEMS DROPDOWN (Other Problem Display)
             let probSelect = document.getElementById('problems');
             if (probSelect) {
                 probSelect.addEventListener('change', function() {
-                    let otherDiv = document.getElementById('otherProblemDiv');
-                    let otherInput = document.getElementById('otherProblemInput');
-                    if (this.value === 'Other Problem') {
-                        otherDiv.style.display = 'block';
-                    } else {
-                        otherDiv.style.display = 'none';
-                        otherInput.value = ''; 
-                    }
+                    let otherDiv = document.getElementById('otherProblemDiv'); let otherInput = document.getElementById('otherProblemInput');
+                    if (this.value === 'Other Problem') { otherDiv.style.display = 'block'; } else { otherDiv.style.display = 'none'; otherInput.value = ''; }
                 });
             }
-
-            if(document.getElementById('adminPanel').style.display === 'block') {
-                populateAdminDropdownSelect();
-                renderAdminManageFields();
-            }
+            if(document.getElementById('adminPanel').style.display === 'block') { populateAdminDropdownSelect(); renderAdminManageFields(); }
         }
 
-        // ================= ADMIN DROPDOWN LOGIC =================
-
+        // --- Admin Dropdown Management ---
         function populateAdminDropdownSelect() {
-            const selectEl = document.getElementById('targetDropdown');
-            const pSelect = document.getElementById('depParentSelect');
-            const cSelect = document.getElementById('depChildSelect');
-            
-            const currentVal = selectEl.value; 
-            const curP = pSelect.value;
-            const curC = cSelect.value;
-
+            const selectEl = document.getElementById('targetDropdown'); const pSelect = document.getElementById('depParentSelect'); const cSelect = document.getElementById('depChildSelect');
+            const currentVal = selectEl.value; const curP = pSelect.value; const curC = cSelect.value;
             let optsHtml = '<option value="">-- Select Field --</option>';
-            appData.fields.forEach(f => {
-                if(f.type === 'select') optsHtml += `<option value="${f.id}">${f.label}</option>`;
-            });
-
-            selectEl.innerHTML = optsHtml;
-            pSelect.innerHTML = '<option value="">-- Parent (Main Category) --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
-            cSelect.innerHTML = '<option value="">-- Child (Sub Category) --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
-
-            if(currentVal) selectEl.value = currentVal;
-            if(curP) pSelect.value = curP;
-            if(curC) cSelect.value = curC;
-
-            renderDropdownOptions();
-            updateDepUI();
+            appData.fields.forEach(f => { if(f.type === 'select') optsHtml += `<option value="${f.id}">${f.label}</option>`; });
+            selectEl.innerHTML = optsHtml; pSelect.innerHTML = '<option value="">-- Parent --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
+            cSelect.innerHTML = '<option value="">-- Child --</option>' + optsHtml.replace('<option value="">-- Select Field --</option>', '');
+            if(currentVal) selectEl.value = currentVal; if(curP) pSelect.value = curP; if(curC) cSelect.value = curC;
+            renderDropdownOptions(); updateDepUI();
         }
 
-        // 1. Regular Dropdown Options Management
         function renderDropdownOptions() {
-            const targetId = document.getElementById('targetDropdown').value;
-            const listDiv = document.getElementById('dropdownItemsList');
-            listDiv.innerHTML = '';
-            if(!targetId) return;
+            const targetId = document.getElementById('targetDropdown').value; const listDiv = document.getElementById('dropdownItemsList'); listDiv.innerHTML = ''; if(!targetId) return;
             const field = appData.fields.find(f => f.id === targetId);
-            
             let html = '';
             if(field.options && field.options.length > 0) {
                 field.options.forEach((opt, index) => {
-                    html += `
-                    <div class="field-row" style="background: white;">
-                        <span>${opt}</span>
-                        <div class="field-actions">
-                            <button class="action-btn btn-edit" onclick="editOption('${field.id}', ${index})">Edit</button>
-                            <button class="action-btn btn-del" onclick="deleteOption('${field.id}', ${index})">Delete</button>
-                        </div>
-                    </div>`;
+                    html += `<div class="field-row" style="background: white;"><span>${opt}</span><div class="field-actions"><button class="action-btn btn-del" onclick="deleteOption('${field.id}', ${index})">Delete</button></div></div>`;
                 });
-            } else {
-                html = '<p style="color:#666; margin:0;">No common options added.</p>';
-            }
+            } else { html = '<p style="color:#666; margin:0;">No common options added.</p>'; }
             listDiv.innerHTML = html;
         }
 
         function addDropdownOption() {
-            const targetId = document.getElementById('targetDropdown').value;
-            let val = document.getElementById('newDropdownVal').value.trim();
+            const targetId = document.getElementById('targetDropdown').value; let val = document.getElementById('newDropdownVal').value.trim();
             if (val && targetId) {
                 const fieldIndex = appData.fields.findIndex(f => f.id === targetId);
-                
-                if (targetId === 'buName') {
-                    const currentCount = appData.fields[fieldIndex].options ? appData.fields[fieldIndex].options.length : 0;
-                    val = `${currentCount + 1}. ${val}`;
-                }
-
+                if (targetId === 'buName') { const currentCount = appData.fields[fieldIndex].options ? appData.fields[fieldIndex].options.length : 0; val = `${currentCount + 1}. ${val}`; }
                 if(!appData.fields[fieldIndex].options) appData.fields[fieldIndex].options = [];
-                appData.fields[fieldIndex].options.push(val);
-                saveData();
-                document.getElementById('newDropdownVal').value = '';
-                renderDropdownOptions(); renderForm(); 
+                appData.fields[fieldIndex].options.push(val); saveData(); document.getElementById('newDropdownVal').value = ''; renderDropdownOptions(); renderForm(); 
             }
         }
-
-        function editOption(fieldId, optionIndex) {
-            const fieldIndex = appData.fields.findIndex(f => f.id === fieldId);
-            const newVal = prompt("Edit the option name:", appData.fields[fieldIndex].options[optionIndex]);
-            if(newVal !== null && newVal.trim() !== "") {
-                appData.fields[fieldIndex].options[optionIndex] = newVal.trim();
-                saveData(); renderDropdownOptions(); renderForm();
-            }
-        }
-
         function deleteOption(fieldId, optionIndex) {
             if(confirm("Are you sure you want to delete this option?")) {
-                const fieldIndex = appData.fields.findIndex(f => f.id === fieldId);
-                appData.fields[fieldIndex].options.splice(optionIndex, 1);
+                const fieldIndex = appData.fields.findIndex(f => f.id === fieldId); appData.fields[fieldIndex].options.splice(optionIndex, 1);
                 saveData(); renderDropdownOptions(); renderForm();
             }
         }
 
-        // 2. Dependent (Smart) Dropdown Logic
         function updateDepUI() {
-            const pId = document.getElementById('depParentSelect').value;
-            const cId = document.getElementById('depChildSelect').value;
-            const mapDiv = document.getElementById('depMappingDiv');
-            const pOptSelect = document.getElementById('depParentOptionSelect');
-
+            const pId = document.getElementById('depParentSelect').value; const cId = document.getElementById('depChildSelect').value;
+            const mapDiv = document.getElementById('depMappingDiv'); const pOptSelect = document.getElementById('depParentOptionSelect');
             if (!pId || !cId) { mapDiv.style.display = 'none'; return; }
-
-            const childField = appData.fields.find(f => f.id === cId);
-            const parentField = appData.fields.find(f => f.id === pId);
-
+            const childField = appData.fields.find(f => f.id === cId); const parentField = appData.fields.find(f => f.id === pId);
             if (childField.parentField === pId) {
-                mapDiv.style.display = 'block';
-                // Populate parent options
-                pOptSelect.innerHTML = '<option value="">-- Select Parent Option First --</option>';
-                if(parentField.options) {
-                    parentField.options.forEach(opt => {
-                        pOptSelect.innerHTML += `<option value="${opt}">${opt}</option>`;
-                    });
-                }
+                mapDiv.style.display = 'block'; pOptSelect.innerHTML = '<option value="">-- Select Parent Option First --</option>';
+                if(parentField.options) { parentField.options.forEach(opt => { pOptSelect.innerHTML += `<option value="${opt}">${opt}</option>`; }); }
                 renderDepOptionsList();
-            } else {
-                mapDiv.style.display = 'none';
-            }
+            } else { mapDiv.style.display = 'none'; }
         }
 
         function linkDropdowns() {
-            const pId = document.getElementById('depParentSelect').value;
-            const cId = document.getElementById('depChildSelect').value;
-            if (!pId || !cId) { alert("Please select both Parent and Child fields."); return; }
-            if (pId === cId) { alert("Parent and Child cannot be the same field."); return; }
-
-            const cIndex = appData.fields.findIndex(f => f.id === cId);
-            appData.fields[cIndex].parentField = pId;
-            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {};
-            
-            saveData(); alert("Fields Linked Successfully!"); renderForm(); updateDepUI();
+            const pId = document.getElementById('depParentSelect').value; const cId = document.getElementById('depChildSelect').value;
+            if (!pId || !cId || pId === cId) return;
+            const cIndex = appData.fields.findIndex(f => f.id === cId); appData.fields[cIndex].parentField = pId;
+            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {}; saveData(); alert("Linked!"); renderForm(); updateDepUI();
         }
-
         function unlinkDropdowns() {
-            const cId = document.getElementById('depChildSelect').value;
-            if (!cId) return;
-            const cIndex = appData.fields.findIndex(f => f.id === cId);
-            delete appData.fields[cIndex].parentField;
-            saveData(); alert("Fields Unlinked!"); renderForm(); updateDepUI();
+            const cId = document.getElementById('depChildSelect').value; if (!cId) return;
+            const cIndex = appData.fields.findIndex(f => f.id === cId); delete appData.fields[cIndex].parentField; saveData(); alert("Unlinked!"); renderForm(); updateDepUI();
         }
-
         function renderDepOptionsList() {
-            const cId = document.getElementById('depChildSelect').value;
-            const pOpt = document.getElementById('depParentOptionSelect').value;
-            const listDiv = document.getElementById('depOptionsListContainer');
-            
-            listDiv.innerHTML = '';
-            if (!cId || !pOpt) return;
-
+            const cId = document.getElementById('depChildSelect').value; const pOpt = document.getElementById('depParentOptionSelect').value;
+            const listDiv = document.getElementById('depOptionsListContainer'); listDiv.innerHTML = ''; if (!cId || !pOpt) return;
             const childField = appData.fields.find(f => f.id === cId);
             if (childField.optionsMap && childField.optionsMap[pOpt] && childField.optionsMap[pOpt].length > 0) {
                 childField.optionsMap[pOpt].forEach((subOpt, index) => {
-                    listDiv.innerHTML += `
-                    <div class="field-row" style="background: white;">
-                        <span>${subOpt}</span>
-                        <div class="field-actions">
-                            <button class="action-btn btn-del" onclick="deleteSpecificDepOption('${cId}', '${pOpt}', ${index})">Delete</button>
-                        </div>
-                    </div>`;
+                    listDiv.innerHTML += `<div class="field-row" style="background: white;"><span>${subOpt}</span><button class="action-btn btn-del" onclick="deleteSpecificDepOption('${cId}', '${pOpt}', ${index})">Delete</button></div>`;
                 });
-            } else {
-                listDiv.innerHTML = '<p style="color:#666; margin:0;">No specific issues mapped for this option yet.</p>';
-            }
+            } else { listDiv.innerHTML = '<p style="color:#666; margin:0;">No specific issues mapped yet.</p>'; }
         }
-
         function addSpecificDepOption() {
-            const cId = document.getElementById('depChildSelect').value;
-            const pOpt = document.getElementById('depParentOptionSelect').value;
+            const cId = document.getElementById('depChildSelect').value; const pOpt = document.getElementById('depParentOptionSelect').value;
             const val = document.getElementById('newDepOptionInput').value.trim();
-
-            if (!cId || !pOpt || !val) { alert("Please select parent option and type a sub-issue."); return; }
-
+            if (!cId || !pOpt || !val) return;
             const cIndex = appData.fields.findIndex(f => f.id === cId);
-            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {};
-            if (!appData.fields[cIndex].optionsMap[pOpt]) appData.fields[cIndex].optionsMap[pOpt] = [];
-
-            appData.fields[cIndex].optionsMap[pOpt].push(val);
-            saveData();
-            document.getElementById('newDepOptionInput').value = '';
-            renderDepOptionsList(); renderForm();
+            if (!appData.fields[cIndex].optionsMap) appData.fields[cIndex].optionsMap = {}; if (!appData.fields[cIndex].optionsMap[pOpt]) appData.fields[cIndex].optionsMap[pOpt] = [];
+            appData.fields[cIndex].optionsMap[pOpt].push(val); saveData(); document.getElementById('newDepOptionInput').value = ''; renderDepOptionsList(); renderForm();
         }
-
         function deleteSpecificDepOption(cId, pOpt, index) {
-            if(confirm("Delete this sub-option?")) {
-                const cIndex = appData.fields.findIndex(f => f.id === cId);
-                appData.fields[cIndex].optionsMap[pOpt].splice(index, 1);
-                saveData(); renderDepOptionsList(); renderForm();
-            }
+            if(confirm("Delete this sub-option?")) { const cIndex = appData.fields.findIndex(f => f.id === cId); appData.fields[cIndex].optionsMap[pOpt].splice(index, 1); saveData(); renderDepOptionsList(); renderForm(); }
         }
 
-        // ================= FIELD MANAGEMENT =================
-
+        // --- FIELD MANAGEMENT ---
         function renderAdminManageFields() {
-            const list = document.getElementById('manageFieldsList');
-            list.innerHTML = '';
+            const list = document.getElementById('manageFieldsList'); list.innerHTML = '';
             appData.fields.forEach((field, index) => {
-                let upBtn = index > 0 ? `<button class="move-btn" onclick="moveField(${index}, -1)" title="Move Up">⬆️</button>` : `<button class="move-btn" style="visibility:hidden;">⬆️</button>`;
-                let downBtn = index < appData.fields.length - 1 ? `<button class="move-btn" onclick="moveField(${index}, 1)" title="Move Down">⬇️</button>` : `<button class="move-btn" style="visibility:hidden;">⬇️</button>`;
-                
-                let hideBtnText = field.hidden ? "👁️ Unhide" : "🚫 Hide";
-                let btnClass = field.hidden ? "btn-unhide" : "btn-hide";
+                let upBtn = index > 0 ? `<button class="move-btn" onclick="moveField(${index}, -1)">⬆️</button>` : `<button class="move-btn" style="visibility:hidden;">⬆️</button>`;
+                let downBtn = index < appData.fields.length - 1 ? `<button class="move-btn" onclick="moveField(${index}, 1)">⬇️</button>` : `<button class="move-btn" style="visibility:hidden;">⬇️</button>`;
+                let hideBtnText = field.hidden ? "👁️ Unhide" : "🚫 Hide"; let btnClass = field.hidden ? "btn-unhide" : "btn-hide";
                 let rowStyle = field.hidden ? "background: #eaeaea; opacity: 0.7;" : "background: #fafafa;";
-                let statusLabel = field.hidden ? '<span style="color:red; font-size:12px; font-weight:bold;">[HIDDEN]</span>' : '';
-                let linkLabel = field.parentField ? `<span style="color:#8e44ad; font-size:11px;">[Linked to: ${field.parentField}]</span>` : '';
-
-                list.innerHTML += `
-                    <div class="field-row" style="${rowStyle}">
-                        <div><strong>${field.label}</strong> ${statusLabel} ${linkLabel} <span style="color:#666; font-size:12px;">(${field.type})</span></div>
-                        <div class="field-actions">
-                            ${upBtn}${downBtn}
-                            <button class="action-btn ${btnClass}" onclick="toggleVisibility('${field.id}')">${hideBtnText}</button>
-                            <button class="action-btn btn-del" onclick="deleteField('${field.id}')">Delete</button>
-                        </div>
-                    </div>`;
+                list.innerHTML += `<div class="field-row" style="${rowStyle}"><div><strong>${field.label}</strong> <span style="color:#666; font-size:12px;">(${field.type})</span></div>
+                    <div class="field-actions">${upBtn}${downBtn}<button class="action-btn ${btnClass}" onclick="toggleVisibility('${field.id}')">${hideBtnText}</button><button class="action-btn btn-del" onclick="deleteField('${field.id}')">Delete</button></div></div>`;
             });
         }
-
-        function toggleVisibility(id) {
-            let field = appData.fields.find(f => f.id === id);
-            if(field) {
-                field.hidden = !field.hidden;
-                saveData(); renderForm();
-            }
-        }
-
+        function toggleVisibility(id) { let field = appData.fields.find(f => f.id === id); if(field) { field.hidden = !field.hidden; saveData(); renderForm(); } }
         function moveField(index, direction) {
             const newIndex = index + direction;
-            if (newIndex >= 0 && newIndex < appData.fields.length) {
-                let temp = appData.fields[index];
-                appData.fields[index] = appData.fields[newIndex];
-                appData.fields[newIndex] = temp;
-                saveData(); renderForm();
-            }
+            if (newIndex >= 0 && newIndex < appData.fields.length) { let temp = appData.fields[index]; appData.fields[index] = appData.fields[newIndex]; appData.fields[newIndex] = temp; saveData(); renderForm(); fetchSubmittedData(); }
         }
-
-        function deleteField(idToRemove) {
-            if(confirm("Are you sure you want to delete this entire field?")) {
-                appData.fields = appData.fields.filter(f => f.id !== idToRemove);
-                saveData(); renderForm();
-            }
+        function deleteField(idToRemove) { 
+            if(confirm("Are you sure? This will remove the field from the Form AND from the Table view!")) { 
+                appData.fields = appData.fields.filter(f => f.id !== idToRemove); saveData(); renderForm(); fetchSubmittedData(); 
+            } 
         }
-
         function addNewField() {
-            const label = document.getElementById('newFieldLabel').value.trim();
-            const type = document.getElementById('newFieldType').value;
+            const label = document.getElementById('newFieldLabel').value.trim(); const type = document.getElementById('newFieldType').value;
             if (label) {
-                const newField = { id: 'custom_' + Date.now(), label: label, type: type, hidden: false };
-                if(type === 'select') newField.options = []; 
-                appData.fields.push(newField);
-                saveData(); alert("New Field Added!");
-                document.getElementById('newFieldLabel').value = ''; renderForm();
+                const newField = { id: 'custom_' + Date.now(), label: label, type: type, hidden: false }; if(type === 'select') newField.options = []; 
+                appData.fields.push(newField); saveData(); alert("Added!"); document.getElementById('newFieldLabel').value = ''; renderForm(); fetchSubmittedData();
             }
         }
 
-        // ================= CART & SUBMISSION ENGINE =================
-
+        // --- CART LOGIC ---
         async function addAssetToCart() {
             let itemData = {}; let isComplete = true;
-            
             appData.fields.forEach(field => {
                 if (field.hidden) return; 
-                
                 let val = document.getElementById(field.id).value.trim();
-
                 if (field.id === 'problems' && val === 'Other Problem') {
                     let manualVal = document.getElementById('otherProblemInput').value.trim();
-                    if(!manualVal) {
-                        alert("Kripya 'Other Problem' ki details manually text box me fill karein.");
-                        isComplete = false;
-                    } else {
-                        val = "Other Problem: " + manualVal;
-                    }
+                    if(!manualVal) { alert("Fill 'Other Problem' manually."); isComplete = false; } else { val = "Other Problem: " + manualVal; }
                 }
-
-                if (!val) isComplete = false;
-                itemData[field.label] = val;
+                if (!val) isComplete = false; itemData[field.label] = val;
             });
+            if (!isComplete) { alert("Fill all visible fields before adding."); return; }
 
-            if (!isComplete) { alert("Please fill all visible fields before adding."); return; }
-
-            const addBtn = document.getElementById('addItemBtn');
-            addBtn.innerText = "⏳ Checking for Duplicates...";
-            addBtn.disabled = true;
-
-            let serialVal = itemData['System Serial Number'];
-            let fruVal = itemData['Bandhan FRU Number'];
-
-            if (serialVal || fruVal) {
-                let isLocalDup = cartItems.some(i => 
-                    (serialVal && i['System Serial Number'] === serialVal) || 
-                    (fruVal && i['Bandhan FRU Number'] === fruVal)
-                );
-                if(isLocalDup) {
-                    alert("Duplicate Entry! Ye Serial Number ya FRU Number aapne is form me pehle hi add kar liya hai.");
-                    resetBtn(addBtn); return;
-                }
-            }
+            const addBtn = document.getElementById('addItemBtn'); addBtn.innerText = "⏳ Checking for Duplicates..."; addBtn.disabled = true;
+            let serialVal = itemData['System Serial Number']; let fruVal = itemData['Bandhan FRU Number'];
 
             try {
                 const checkPromises = [];
-                if (serialVal) {
-                    checkPromises.push(db.collection("asset_records").where("System Serial Number", "==", serialVal).get().then(s => ({type: 'serial', empty: s.empty})));
-                }
-                if (fruVal) {
-                    checkPromises.push(db.collection("asset_records").where("Bandhan FRU Number", "==", fruVal).get().then(s => ({type: 'fru', empty: s.empty})));
-                }
+                if (serialVal) checkPromises.push(db.collection("asset_records").where("System Serial Number", "==", serialVal).get().then(s => ({type: 'serial', empty: s.empty})));
+                if (fruVal) checkPromises.push(db.collection("asset_records").where("Bandhan FRU Number", "==", fruVal).get().then(s => ({type: 'fru', empty: s.empty})));
 
                 if (checkPromises.length > 0) {
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("NetworkTimeout")), 4000));
-                    const queryResults = await Promise.race([Promise.all(checkPromises), timeoutPromise]);
-                    
+                    const queryResults = await Promise.all(checkPromises);
                     for (let res of queryResults) {
                         if (!res.empty) {
-                            if (res.type === 'serial') {
-                                alert("Database Duplicate! Ye System Serial Number database me pehle se maujood hai.");
-                                resetBtn(addBtn); return;
-                            }
-                            if (res.type === 'fru') {
-                                alert("Database Duplicate! Ye Bandhan FRU Number database me pehle se maujood hai.");
-                                resetBtn(addBtn); return;
-                            }
+                            if (res.type === 'serial') { alert("Duplicate! System Serial Number pehle se maujood hai."); resetBtn(addBtn); return; }
+                            if (res.type === 'fru') { alert("Duplicate! FRU Number pehle se maujood hai."); resetBtn(addBtn); return; }
                         }
                     }
                 }
-            } catch(e) {
-                console.warn("Duplicate Check Exception (Handled): ", e);
-                if (e.message === "NetworkTimeout" || e.message.includes("permission") || e.message.includes("unauthenticated")) {
-                    alert("⚠️ Note: Bank Network restriction ki wajah se online duplicate check slow hai. Item safely local list me add kiya ja raha hai.");
-                } else {
-                    alert("Database Alert: " + e.message);
-                    resetBtn(addBtn); return;
-                }
-            }
+            } catch(e) { console.warn("Duplicate Check Warning: ", e); }
 
-            itemData['Timestamp'] = new Date().toLocaleString();
-            cartItems.push(itemData); 
-            updateCartUI();
-            
-            appData.fields.forEach(field => {
-                if (!field.hidden && field.type !== 'select') {
-                    document.getElementById(field.id).value = '';
-                }
-            });
-            let otherInput = document.getElementById('otherProblemInput');
-            if (otherInput) {
-                otherInput.value = '';
-                document.getElementById('otherProblemDiv').style.display = 'none';
-            }
-
+            itemData['Status'] = 'Pending'; itemData['Timestamp'] = new Date().toLocaleString();
+            cartItems.push(itemData); updateCartUI();
+            appData.fields.forEach(field => { if (!field.hidden && field.type !== 'select') { document.getElementById(field.id).value = ''; } });
+            let otherInput = document.getElementById('otherProblemInput'); if (otherInput) { otherInput.value = ''; document.getElementById('otherProblemDiv').style.display = 'none'; }
             resetBtn(addBtn);
         }
-
-        function resetBtn(btn) {
-            btn.innerText = "➕ Add This Item";
-            btn.disabled = false;
-        }
-
+        function resetBtn(btn) { btn.innerText = "➕ Add This Item"; btn.disabled = false; }
         function updateCartUI() {
-            const addedDiv = document.getElementById('addedItems');
-            const submitBtn = document.getElementById('finalSubmitBtn');
-            const itemList = document.getElementById('itemList');
-            const countSpan = document.getElementById('itemCount');
+            const addedDiv = document.getElementById('addedItems'); const submitBtn = document.getElementById('finalSubmitBtn');
+            const itemList = document.getElementById('itemList'); const countSpan = document.getElementById('itemCount');
             if (cartItems.length > 0) {
                 addedDiv.style.display = 'block'; submitBtn.style.display = 'block';
                 countSpan.innerText = cartItems.length; itemList.innerHTML = '';
                 cartItems.forEach((item, index) => {
-                    let itemName = item['Company Name'] ? item['Company Name'] : "";
-                    let assetType = item['Asset Type'] ? item['Asset Type'] : "Item";
+                    let itemName = item['Company Name'] || ""; let assetType = item['Asset Type'] || "Item";
                     itemList.innerHTML += `<li>${index + 1}. ${itemName} ${assetType} added</li>`;
                 });
             }
         }
-
         async function finalSubmit() {
-            document.getElementById('finalSubmitBtn').style.display = 'none';
-            document.getElementById('loadingMsg').style.display = 'block';
-            document.getElementById('addItemBtn').style.display = 'none';
-
+            document.getElementById('finalSubmitBtn').style.display = 'none'; document.getElementById('loadingMsg').style.display = 'block'; document.getElementById('addItemBtn').style.display = 'none';
             try {
-                for (const item of cartItems) {
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout: Cloud execution network fail.")), 10000));
-                    await Promise.race([db.collection("asset_records").add(item), timeoutPromise]);
-                }
-
-                document.getElementById('loadingMsg').style.display = 'none';
-                document.getElementById('successMsg').style.display = 'block';
+                for (const item of cartItems) { await db.collection("asset_records").add(item); }
+                document.getElementById('loadingMsg').style.display = 'none'; document.getElementById('successMsg').style.display = 'block';
                 
                 let waText = `*New Asset Entry*\n_Submitted by: Rashid Hussain_\n\n`;
-                cartItems.forEach((item, index) => {
-                    waText += `*--- Item ${index + 1} ---*\n`;
-                    appData.fields.forEach(f => { if(item[f.label]) waText += `*${f.label}:* ${item[f.label]}\n`; });
-                    waText += `\n`;
-                });
-                const waBtn = document.getElementById('whatsappBtn');
-                waBtn.style.display = 'block';
-                waBtn.href = `https://wa.me/919720110030?text=${encodeURIComponent(waText)}`;
-
-            } catch (error) {
-                console.error("Firebase transaction fail: ", error);
-                alert("Database Error: Kripya apne Firebase Rules ko check karein ya strong network use karein.");
-                document.getElementById('finalSubmitBtn').style.display = 'block';
-                document.getElementById('loadingMsg').style.display = 'none';
-                document.getElementById('addItemBtn').style.display = 'block';
-            }
+                cartItems.forEach((item, index) => { waText += `*--- Item ${index + 1} ---*\n`; appData.fields.forEach(f => { if(item[f.label]) waText += `*${f.label}:* ${item[f.label]}\n`; }); waText += `\n`; });
+                const waBtn = document.getElementById('whatsappBtn'); waBtn.style.display = 'block'; waBtn.href = `https://wa.me/919720110030?text=${encodeURIComponent(waText)}`;
+            } catch (error) { console.error("Firebase fail: ", error); alert("Database Error. Check Network."); }
         }
 
-        // ================= ADMIN DATA TABLE & EXPORT =================
+        // --- STYLISH STOCK MANAGEMENT ---
+        async function fetchStockData() {
+            try {
+                const doc = await db.collection("app_settings").doc("stock_config").get();
+                if (doc.exists && doc.data().items) { stockInventory = doc.data().items; } else { stockInventory = {}; }
+                renderStockUI();
+            } catch(e) { console.error("Stock Fetch Error:", e); }
+        }
 
+        function renderStockUI() {
+            const container = document.getElementById('currentStockContainer'); container.innerHTML = '';
+            let hasStock = false;
+            for (let item in stockInventory) {
+                if (stockInventory[item] > 0) {
+                    container.innerHTML += `<div class="modern-stock-card"><p class="qty">${stockInventory[item]}</p><p class="name">${item}</p></div>`; hasStock = true;
+                }
+            }
+            if(!hasStock) container.innerHTML = '<span style="color:#777;">Stock empty. Add items from Inward.</span>';
+        }
+
+        async function addInwardStock() {
+            let item = document.getElementById('inwardItemName').value.trim(); let qty = parseInt(document.getElementById('inwardQty').value);
+            if(!item || qty < 1 || isNaN(qty)) { alert("Please enter valid item name and quantity!"); return; }
+            if(!stockInventory[item]) stockInventory[item] = 0; stockInventory[item] += qty;
+            try {
+                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory }, { merge: true });
+                await db.collection("stock_history").add({ date: new Date().toLocaleString('en-IN'), timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: "INWARD (+)", item: item, qty: qty, buName: "Head Office", buId: "-", ticket: "-" });
+                document.getElementById('inwardItemName').value = ''; document.getElementById('inwardQty').value = ''; alert(`✅ Added ${qty} ${item} to stock.`);
+                fetchStockData(); fetchStockHistory();
+            } catch(e) { console.error(e); alert("Error updating stock."); }
+        }
+
+        async function fetchStockHistory() {
+            const tbody = document.getElementById('stockHistoryBody');
+            try {
+                const snapshot = await db.collection("stock_history").orderBy("timestamp", "desc").limit(50).get();
+                tbody.innerHTML = '';
+                if(snapshot.empty) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No history found.</td></tr>'; return; }
+                snapshot.forEach(doc => {
+                    let d = doc.data(); let color = d.type.includes('INWARD') ? 'green' : 'red';
+                    tbody.innerHTML += `<tr><td>${d.date}</td><td style="color:${color}; font-weight:bold;">${d.type}</td><td>${d.item}</td><td>${d.qty}</td><td>${d.buName}</td><td>${d.buId} / ${d.ticket}</td></tr>`;
+                });
+            } catch(e) { console.error("History error:", e); }
+        }
+        function toggleStockHistory() { let div = document.getElementById('stockHistoryContainer'); div.style.display = (div.style.display === 'none' || div.style.display === '') ? 'block' : 'none'; }
+        function toggleSubmittedRecords() { let div = document.getElementById('submittedRecordsContainer'); div.style.display = (div.style.display === 'none' || div.style.display === '') ? 'block' : 'none'; }
+
+
+        // --- DYNAMIC DATA TABLE (AUTO-SYNC WITH MANAGE FIELDS) ---
         async function fetchSubmittedData() {
-            const dataBody = document.getElementById('dataBody');
-            const dataHead = document.getElementById('dataHead');
+            const dataBody = document.getElementById('dataBody'); const dataHead = document.getElementById('dataHead');
             dataBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Fetching data...</td></tr>`;
-            
             try {
                 const snapshot = await db.collection("asset_records").orderBy("Timestamp", "desc").get();
-                if (snapshot.empty) {
-                    dataHead.innerHTML = '';
-                    dataBody.innerHTML = `<tr><td style="text-align:center;">No records found in database.</td></tr>`;
-                    return;
-                }
+                if (snapshot.empty) { dataHead.innerHTML = ''; dataBody.innerHTML = `<tr><td style="text-align:center;">No records found.</td></tr>`; return; }
                 
                 let allRecords = []; 
-                let uniqueKeys = new Set(); uniqueKeys.add("Timestamp"); 
+                
+                // 1. Get ONLY the Active Field Labels from appData
+                let activeFormFields = appData.fields.map(f => f.label);
+                
+                // 2. Define exactly which columns are allowed in the table
+                let allowedKeys = ["Timestamp", "Status", ...activeFormFields, "Issued Item"];
+                
+                let uniqueKeys = new Set();
+                uniqueKeys.add("Timestamp"); uniqueKeys.add("Status");
                 
                 snapshot.forEach(doc => {
-                    let data = doc.data(); 
+                    let data = doc.data(); if(!data.Status) data.Status = 'Pending';
                     allRecords.push({ id: doc.id, data: data });
-                    Object.keys(data).forEach(key => uniqueKeys.add(key));
+                    
+                    // 3. Only add headers if they exist in the allowedKeys list
+                    Object.keys(data).forEach(key => {
+                        if (allowedKeys.includes(key) && data[key] !== "") {
+                            uniqueKeys.add(key);
+                        }
+                    });
                 });
                 
-                let headersHtml = "<tr>";
-                uniqueKeys.forEach(key => headersHtml += `<th>${key}</th>`);
+                // 4. Sort Headers to keep Timestamp/Status first, then form fields, then Issued Item
+                let sortedHeaders = allowedKeys.filter(key => uniqueKeys.has(key));
+
+                let headersHtml = "<tr>"; 
+                sortedHeaders.forEach(key => headersHtml += `<th>${key}</th>`); 
                 headersHtml += `<th>Actions</th></tr>`;
                 dataHead.innerHTML = headersHtml;
                 
                 let rowsHtml = "";
                 allRecords.forEach(record => {
                     rowsHtml += "<tr>";
-                    uniqueKeys.forEach(key => rowsHtml += `<td>${record.data[key] ? record.data[key] : '-'}</td>`);
+                    sortedHeaders.forEach(key => {
+                        let val = record.data[key] ? record.data[key] : '-';
+                        if(key === 'Status') {
+                            let clr = val === 'Approved' ? '#28a745' : (val === 'Resolved' ? '#17a2b8' : (val === 'Rejected' ? '#dc3545' : 'orange'));
+                            rowsHtml += `<td style="color:${clr}; font-weight:bold;">${val}</td>`;
+                        } else { rowsHtml += `<td>${val}</td>`; }
+                    });
                     
-                    rowsHtml += `<td style="min-width: 120px;">
-                        <button class="action-btn btn-edit" onclick="editRecord('${record.id}')" style="margin-bottom: 5px; width: 100%;">✏️ Edit</button>
-                        <button class="action-btn btn-del" onclick="deleteRecord('${record.id}')" style="width: 100%;">🗑️ Delete</button>
-                    </td>`;
-                    rowsHtml += "</tr>";
+                    let isPending = (record.data.Status === 'Pending');
+                    let recordStr = encodeURIComponent(JSON.stringify(record.data));
+                    let actions = "";
+
+                    if(isPending) {
+                        actions += `<button class="action-btn" style="background:#28a745; margin-bottom:5px; width:100%;" onclick="openApproveModal('${record.id}', '${recordStr}')">📦 Issue Stock</button>`;
+                        actions += `<button class="action-btn" style="background:#17a2b8; margin-bottom:5px; width:100%;" onclick="changeRecordStatus('${record.id}', 'Resolved')">🔧 Mark Resolved</button>`;
+                        actions += `<button class="action-btn" style="background:#dc3545; margin-bottom:5px; width:100%;" onclick="changeRecordStatus('${record.id}', 'Rejected')">❌ Reject</button>`;
+                    } else {
+                        actions += `<button class="action-btn" style="background:#25D366; margin-bottom:5px; width:100%; font-size:13px;" onclick="shareOnWhatsApp('${recordStr}')">📲 Share WhatsApp</button>`;
+                    }
+                    actions += `<button class="action-btn btn-del" onclick="deleteRecord('${record.id}')" style="width: 100%;">🗑️ Delete</button>`;
+
+                    rowsHtml += `<td style="min-width: 140px;">${actions}</td></tr>`;
                 });
                 dataBody.innerHTML = rowsHtml;
-                
-            } catch (error) {
-                console.error("Fetch Data Error:", error);
-                dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Synchronization error. Check network state logic metrics.</td></tr>`;
+            } catch (error) { console.error("Fetch Data Error:", error); dataBody.innerHTML = `<tr><td style="text-align:center; color: red;">Error fetching data.</td></tr>`; }
+        }
+
+        async function changeRecordStatus(docId, newStatus) {
+            let msg = newStatus === 'Resolved' ? "Kiya aap is problem ko 'Resolved' mark karna chahte hain? (Stock minus nahi hoga)" : "Kiya aap is request ko Reject karna chahte hain?";
+            if(confirm(msg)) {
+                try {
+                    await db.collection("asset_records").doc(docId).update({ Status: newStatus });
+                    fetchSubmittedData();
+                } catch(e) { console.error(e); alert("Database Error."); }
             }
         }
 
-        // NEW EXPORT TO EXCEL FUNCTION USING SHEETJS
+        // WhatsApp Share also respects active fields
+        function shareOnWhatsApp(recordDataStr) {
+            let data = JSON.parse(decodeURIComponent(recordDataStr));
+            let activeFormFields = appData.fields.map(f => f.label);
+            
+            let waText = `*Bandhan IT Support Update*\n\n`;
+            waText += `*Status:* ${data.Status}\n`;
+            if (data['Issued Item']) { waText += `*Issued Item:* ${data['Issued Item']}\n`; }
+            
+            // Only add fields that are currently active in the form
+            activeFormFields.forEach(key => {
+                if(data[key]) { waText += `*${key}:* ${data[key]}\n`; }
+            });
+            
+            waText += `\n_Regard: Rashid Hussain (IT)_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+        }
+
+        // --- Approve Modal Logic ---
+        function openApproveModal(docId, recordDataStr) {
+            let recordData = JSON.parse(decodeURIComponent(recordDataStr));
+            document.getElementById('modalDocId').value = docId; document.getElementById('modalRecordData').value = recordDataStr; document.getElementById('modalStockQty').value = 1;
+            
+            let select = document.getElementById('modalStockItem'); select.innerHTML = '<option value="">-- Select Item from Stock --</option>';
+            for(let item in stockInventory) {
+                if(stockInventory[item] > 0) { select.innerHTML += `<option value="${item}">${item} (Avail: ${stockInventory[item]})</option>`; }
+            }
+            document.getElementById('approveModal').style.display = 'flex';
+        }
+        function closeApproveModal() { document.getElementById('approveModal').style.display = 'none'; }
+
+        async function confirmApproveIssue() {
+            let docId = document.getElementById('modalDocId').value; let recordData = JSON.parse(decodeURIComponent(document.getElementById('modalRecordData').value));
+            let selectedItem = document.getElementById('modalStockItem').value; let qty = parseInt(document.getElementById('modalStockQty').value);
+
+            if(!selectedItem || isNaN(qty) || qty < 1) { alert("Please select an item and valid quantity."); return; }
+            if(stockInventory[selectedItem] < qty) { alert(`Not enough stock! You only have ${stockInventory[selectedItem]} ${selectedItem} left.`); return; }
+
+            stockInventory[selectedItem] -= qty;
+
+            try {
+                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory }, { merge: true });
+                let buName = recordData['BU Name'] || 'Unknown BU'; let buId = recordData['BU ID'] || '-'; let ticket = recordData['BERP Ticket Number'] || '-';
+
+                await db.collection("stock_history").add({ date: new Date().toLocaleString('en-IN'), timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: "OUTWARD (-)", item: selectedItem, qty: qty, buName: buName, buId: buId, ticket: ticket });
+                
+                await db.collection("asset_records").doc(docId).update({ Status: "Approved", "Issued Item": `${qty} x ${selectedItem}` });
+
+                alert("✅ Successfully Approved and Stock Deducted!");
+                closeApproveModal(); fetchStockData(); fetchStockHistory(); fetchSubmittedData();
+            } catch(e) { console.error("Error issuing stock:", e); alert("Error saving to database."); }
+        }
+
+        // Dynamic Excel Export - Auto Syncs with Table
         function exportToExcel() {
             let table = document.getElementById("submittedDataTable");
-            
-            // Check if table has data
-            if(table.rows.length <= 1 || table.rows[0].cells[0].innerText.includes("Click Refresh")) {
-                alert("Kripya pehle 'Refresh Data' button dabayein taaki records load ho sakein.");
-                return;
-            }
-
-            // Create a clone of the table so we can remove the "Actions" column before export
-            let cloneTable = table.cloneNode(true);
-            let headers = cloneTable.querySelectorAll("th");
-            if(headers.length > 0) headers[headers.length - 1].remove(); // Remove Actions header
-            
-            let rows = cloneTable.querySelectorAll("tbody tr");
-            rows.forEach(row => {
-                let cells = row.querySelectorAll("td");
-                if(cells.length > 0) cells[cells.length - 1].remove(); // Remove Action buttons cell
-            });
-
-            // Convert to Excel workbook
-            let wb = XLSX.utils.table_to_book(cloneTable, {sheet: "Asset Records"});
-            
-            // Generate exact file name with date
-            let d = new Date();
-            let dateStr = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+            if(table.rows.length <= 1 || table.rows[0].cells[0].innerText.includes("Click Refresh")) { alert("Kripya pehle 'Refresh Data' button dabayein."); return; }
+            let cloneTable = table.cloneNode(true); let headers = cloneTable.querySelectorAll("th");
+            if(headers.length > 0) headers[headers.length - 1].remove(); 
+            let rows = cloneTable.querySelectorAll("tbody tr"); rows.forEach(row => { let cells = row.querySelectorAll("td"); if(cells.length > 0) cells[cells.length - 1].remove(); });
+            let wb = XLSX.utils.table_to_book(cloneTable, {sheet: "Asset Records"}); let d = new Date(); let dateStr = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
             XLSX.writeFile(wb, `Bandhan_Asset_Records_${dateStr}.xlsx`);
-        }
-
-        async function editRecord(docId) {
-            try {
-                let docRef = db.collection("asset_records").doc(docId);
-                let docSnap = await docRef.get();
-                if (docSnap.exists) {
-                    let data = docSnap.data();
-                    let updatedData = {};
-                    let isChanged = false;
-                    
-                    for (let key in data) {
-                        if(key !== "Timestamp") {
-                            let newVal = prompt(`Edit value for '${key}':`, data[key]);
-                            if (newVal !== null) {
-                                updatedData[key] = newVal.trim();
-                                if (updatedData[key] !== data[key]) isChanged = true;
-                            } else {
-                                updatedData[key] = data[key]; 
-                            }
-                        } else {
-                            updatedData[key] = data[key];
-                        }
-                    }
-                    
-                    if (isChanged) {
-                        await docRef.update(updatedData);
-                        alert("Record Successfully Updated!");
-                        fetchSubmittedData(); 
-                    }
-                }
-            } catch(error) {
-                console.error("Edit Record Error:", error);
-                alert("Error executing update procedure sequence.");
-            }
         }
 
         async function deleteRecord(docId) {
             if (confirm("Kiya aap sach me is record ko Database se hamesha ke liye Delete karna chahte hain?")) {
-                try {
-                    await db.collection("asset_records").doc(docId).delete();
-                    alert("Record Successfully Deleted!");
-                    fetchSubmittedData(); 
-                } catch(error) {
-                    console.error("Delete Record Error:", error);
-                    alert("Error processing deletion command.");
-                }
+                try { await db.collection("asset_records").doc(docId).delete(); alert("Record Deleted!"); fetchSubmittedData(); } catch(error) { console.error("Delete Error:", error); }
             }
         }
 
-        // ================= VIEW CONTROLLERS =================
-
+        // --- VIEW CONTROLLERS ---
         function showLogin() {
-            document.getElementById('userFormSection').style.display = 'none';
-            document.getElementById('adminPanel').style.display = 'none';
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('adminBtn').style.display = 'none';
+            document.getElementById('userFormSection').style.display = 'none'; document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'block'; document.getElementById('adminBtn').style.display = 'none';
         }
-
         function showUserForm() {
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('adminPanel').style.display = 'none';
-            document.getElementById('userFormSection').style.display = 'block';
-            document.getElementById('adminBtn').style.display = 'block';
-            document.getElementById('successMsg').style.display = 'none';
-            document.getElementById('loadingMsg').style.display = 'none';
-            document.getElementById('whatsappBtn').style.display = 'none';
-            document.getElementById('addItemBtn').style.display = 'block';
-            cartItems = []; updateCartUI(); document.getElementById('addedItems').style.display = 'none';
-            initializeFormEngine(); 
+            document.getElementById('loginSection').style.display = 'none'; document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('userFormSection').style.display = 'block'; document.getElementById('adminBtn').style.display = 'block';
+            document.getElementById('successMsg').style.display = 'none'; document.getElementById('loadingMsg').style.display = 'none';
+            document.getElementById('whatsappBtn').style.display = 'none'; document.getElementById('addItemBtn').style.display = 'block';
+            cartItems = []; updateCartUI(); document.getElementById('addedItems').style.display = 'none'; initializeFormEngine(); 
         }
-
         function verifyAdmin() {
             if (document.getElementById('adminPasswordInput').value === appData.adminPass) {
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('adminPanel').style.display = 'block';
-                document.getElementById('adminPasswordInput').value = '';
-                populateAdminDropdownSelect(); renderAdminManageFields(); fetchSubmittedData();
+                document.getElementById('loginSection').style.display = 'none'; document.getElementById('adminPanel').style.display = 'block'; document.getElementById('adminPasswordInput').value = '';
+                populateAdminDropdownSelect(); renderAdminManageFields(); 
+                document.getElementById('submittedRecordsContainer').style.display = 'none';
+                fetchStockData(); fetchStockHistory(); fetchSubmittedData();
             } else { alert("Incorrect Password!"); }
         }
-
         function changePassword() {
             const val = document.getElementById('newPassword').value;
-            if (val) {
-                appData.adminPass = val; saveData();
-                alert("Password changed successfully!"); document.getElementById('newPassword').value = '';
-            }
+            if (val) { appData.adminPass = val; saveData(); alert("Password changed successfully!"); document.getElementById('newPassword').value = ''; }
         }
 
-        // Main Initialisation Point
         window.onload = function() { initializeFormEngine(); };
     </script>
 </body>
