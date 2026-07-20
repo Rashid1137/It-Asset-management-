@@ -47,6 +47,7 @@
         .move-btn { background: #e0eafc; border: 1px solid #a8c1f0; cursor: pointer; padding: 5px 8px; border-radius: 3px; font-size: 14px; }
         .action-btn { color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-del { background: #ff3333; }
+        .btn-edit { background: #ffaa00; }
         .btn-hide { background: #e67e22; }
         .btn-unhide { background: #7f8c8d; }
         
@@ -60,11 +61,11 @@
             background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
             color: white; padding: 15px 10px; border-radius: 10px; text-align: center;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
         }
         .modern-stock-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
         .modern-stock-card .qty { font-size: 26px; font-weight: 900; margin: 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
-        .modern-stock-card .name { font-size: 13px; font-weight: 700; margin-top: 5px; text-transform: uppercase; word-break: break-word; }
+        .modern-stock-card .name { font-size: 13px; font-weight: 700; margin-top: 5px; margin-bottom: 5px; text-transform: uppercase; word-break: break-word; }
 
         /* Modal Styles */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; justify-content: center; align-items: center; }
@@ -138,13 +139,21 @@
 
                     <div style="margin-top: 15px;">
                         <button class="admin-btn" style="background:#8e44ad; width: 100%; font-size: 16px;" onclick="toggleStockHistory()">📜 Show / Hide Stock History</button>
-                        <div id="stockHistoryContainer" style="display:none; margin-top: 15px; max-height: 300px; overflow-y: auto;">
+                        <div id="stockHistoryContainer" style="display:none; margin-top: 15px; max-height: 400px; overflow-y: auto;">
                             <table>
                                 <thead>
-                                    <tr><th>Date & Time</th><th>Type (IN/OUT)</th><th>Item</th><th>Qty</th><th>Given To (BU Name)</th><th>BU ID / Ticket</th></tr>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Type (IN/OUT)</th>
+                                        <th>Item</th>
+                                        <th>Qty</th>
+                                        <th>Given To (BU Name)</th>
+                                        <th>BU ID / Ticket</th>
+                                        <th>Actions</th>
+                                    </tr>
                                 </thead>
                                 <tbody id="stockHistoryBody">
-                                    <tr><td colspan="6" style="text-align:center;">Loading history...</td></tr>
+                                    <tr><td colspan="7" style="text-align:center;">Loading history...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -506,7 +515,7 @@
                 }
             } catch(e) { console.warn("Duplicate Check Warning: ", e); }
 
-            itemData['Status'] = 'Pending'; itemData['Timestamp'] = new Date().toLocaleString();
+            itemData['Status'] = 'Pending'; itemData['Timestamp'] = new Date().toLocaleString('en-IN');
             cartItems.push(itemData); updateCartUI();
             appData.fields.forEach(field => { if (!field.hidden && field.type !== 'select') { document.getElementById(field.id).value = ''; } });
             let otherInput = document.getElementById('otherProblemInput'); if (otherInput) { otherInput.value = ''; document.getElementById('otherProblemDiv').style.display = 'none'; }
@@ -528,7 +537,10 @@
         async function finalSubmit() {
             document.getElementById('finalSubmitBtn').style.display = 'none'; document.getElementById('loadingMsg').style.display = 'block'; document.getElementById('addItemBtn').style.display = 'none';
             try {
-                for (const item of cartItems) { await db.collection("asset_records").add(item); }
+                for (const item of cartItems) { 
+                    item.serverTimestamp = firebase.firestore.FieldValue.serverTimestamp(); // For perfect date sorting
+                    await db.collection("asset_records").add(item); 
+                }
                 document.getElementById('loadingMsg').style.display = 'none'; document.getElementById('successMsg').style.display = 'block';
                 
                 let waText = `*New Asset Entry*\n_Submitted by: Rashid Hussain_\n\n`;
@@ -537,7 +549,7 @@
             } catch (error) { console.error("Firebase fail: ", error); alert("Database Error. Check Network."); }
         }
 
-        // --- STYLISH STOCK MANAGEMENT ---
+        // --- STYLISH STOCK MANAGEMENT (EDIT & DELETE INCLUDED) ---
         async function fetchStockData() {
             try {
                 const doc = await db.collection("app_settings").doc("stock_config").get();
@@ -549,12 +561,55 @@
         function renderStockUI() {
             const container = document.getElementById('currentStockContainer'); container.innerHTML = '';
             let hasStock = false;
+            
             for (let item in stockInventory) {
-                if (stockInventory[item] > 0) {
-                    container.innerHTML += `<div class="modern-stock-card"><p class="qty">${stockInventory[item]}</p><p class="name">${item}</p></div>`; hasStock = true;
-                }
+                container.innerHTML += `
+                    <div class="modern-stock-card">
+                        <p class="qty">${stockInventory[item]}</p>
+                        <p class="name">${item}</p>
+                        <div style="display:flex; gap:5px; margin-top:10px; width:100%; justify-content:center;">
+                            <button onclick="editStockItem('${item}')" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">✏️ Edit</button>
+                            <button onclick="deleteStockItem('${item}')" style="background:rgba(220,53,69,0.8); border:none; color:white; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">🗑️ Del</button>
+                        </div>
+                    </div>`; 
+                hasStock = true;
             }
             if(!hasStock) container.innerHTML = '<span style="color:#777;">Stock empty. Add items from Inward.</span>';
+        }
+
+        async function editStockItem(item) {
+            let newQty = prompt(`Edit current quantity for '${item}':`, stockInventory[item]);
+            if (newQty === null) return;
+            let parsedQty = parseInt(newQty);
+            if (isNaN(parsedQty) || parsedQty < 0) { alert("Please enter a valid number (0 or greater)."); return; }
+            
+            stockInventory[item] = parsedQty;
+            try {
+                // Save updated stock to Firebase
+                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory });
+                
+                // Ask if they want history log
+                if(confirm("Do you want to log this manual update in the Stock History?")) {
+                    await db.collection("stock_history").add({
+                        date: new Date().toLocaleString('en-IN'),
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        type: "MANUAL UPDATE", item: item, qty: parsedQty,
+                        buName: "Admin Correction", buId: "-", ticket: "-"
+                    });
+                    fetchStockHistory();
+                }
+                renderStockUI(); alert(`✅ Stock for '${item}' updated to ${parsedQty}.`);
+            } catch(e) { console.error(e); alert("Database Error."); }
+        }
+
+        async function deleteStockItem(item) {
+            if(confirm(`Are you sure you want to COMPLETELY DELETE '${item}' from your stock list?`)) {
+                delete stockInventory[item];
+                try {
+                    await db.collection("app_settings").doc("stock_config").set({ items: stockInventory });
+                    renderStockUI(); alert(`✅ '${item}' has been removed from stock list.`);
+                } catch(e) { console.error(e); alert("Database Error."); }
+            }
         }
 
         async function addInwardStock() {
@@ -562,63 +617,105 @@
             if(!item || qty < 1 || isNaN(qty)) { alert("Please enter valid item name and quantity!"); return; }
             if(!stockInventory[item]) stockInventory[item] = 0; stockInventory[item] += qty;
             try {
-                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory }, { merge: true });
+                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory });
                 await db.collection("stock_history").add({ date: new Date().toLocaleString('en-IN'), timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: "INWARD (+)", item: item, qty: qty, buName: "Head Office", buId: "-", ticket: "-" });
                 document.getElementById('inwardItemName').value = ''; document.getElementById('inwardQty').value = ''; alert(`✅ Added ${qty} ${item} to stock.`);
                 fetchStockData(); fetchStockHistory();
             } catch(e) { console.error(e); alert("Error updating stock."); }
         }
 
+        // DATE-WISE SORTING & EDIT/DELETE IN STOCK HISTORY
         async function fetchStockHistory() {
             const tbody = document.getElementById('stockHistoryBody');
             try {
-                const snapshot = await db.collection("stock_history").orderBy("timestamp", "desc").limit(50).get();
+                const snapshot = await db.collection("stock_history").orderBy("timestamp", "desc").get();
                 tbody.innerHTML = '';
-                if(snapshot.empty) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No history found.</td></tr>'; return; }
+                if(snapshot.empty) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No history found.</td></tr>'; return; }
                 snapshot.forEach(doc => {
-                    let d = doc.data(); let color = d.type.includes('INWARD') ? 'green' : 'red';
-                    tbody.innerHTML += `<tr><td>${d.date}</td><td style="color:${color}; font-weight:bold;">${d.type}</td><td>${d.item}</td><td>${d.qty}</td><td>${d.buName}</td><td>${d.buId} / ${d.ticket}</td></tr>`;
+                    let d = doc.data(); let color = d.type.includes('INWARD') ? 'green' : (d.type.includes('OUTWARD') ? 'red' : 'blue');
+                    
+                    let actions = `<button class="action-btn btn-edit" onclick="editStockHistory('${doc.id}')" style="padding: 4px 8px; margin-right: 5px;">✏️ Edit</button>`;
+                    actions += `<button class="action-btn btn-del" onclick="deleteStockHistory('${doc.id}')" style="padding: 4px 8px;">🗑️ Delete</button>`;
+
+                    tbody.innerHTML += `<tr>
+                        <td>${d.date}</td>
+                        <td style="color:${color}; font-weight:bold;">${d.type}</td>
+                        <td>${d.item}</td><td>${d.qty}</td>
+                        <td>${d.buName}</td><td>${d.buId} / ${d.ticket}</td>
+                        <td style="min-width: 130px;">${actions}</td>
+                    </tr>`;
                 });
             } catch(e) { console.error("History error:", e); }
         }
+
+        async function editStockHistory(docId) {
+            try {
+                let docRef = db.collection("stock_history").doc(docId);
+                let docSnap = await docRef.get();
+                if(docSnap.exists) {
+                    let d = docSnap.data();
+                    let newQty = prompt("Edit Quantity:", d.qty); if(newQty === null) return;
+                    let newItem = prompt("Edit Item Name:", d.item); if(newItem === null) return;
+                    let newBU = prompt("Edit Given To / Source:", d.buName); if(newBU === null) return;
+                    
+                    await docRef.update({ qty: parseInt(newQty) || d.qty, item: newItem, buName: newBU });
+                    alert("✅ History Record Updated! (Note: Current stock balance not auto-adjusted, change it manually if needed)");
+                    fetchStockHistory();
+                }
+            } catch(e) { alert("Error editing record."); }
+        }
+
+        async function deleteStockHistory(docId) {
+            if(confirm("Are you sure you want to delete this history record? (Stock balance will not change)")) {
+                try { await db.collection("stock_history").doc(docId).delete(); alert("Record Deleted!"); fetchStockHistory(); } 
+                catch(e) { alert("Error deleting record."); }
+            }
+        }
+
         function toggleStockHistory() { let div = document.getElementById('stockHistoryContainer'); div.style.display = (div.style.display === 'none' || div.style.display === '') ? 'block' : 'none'; }
         function toggleSubmittedRecords() { let div = document.getElementById('submittedRecordsContainer'); div.style.display = (div.style.display === 'none' || div.style.display === '') ? 'block' : 'none'; }
 
 
-        // --- DYNAMIC DATA TABLE (AUTO-SYNC WITH MANAGE FIELDS) ---
+        // --- DYNAMIC DATA TABLE (PERFECT DATE-WISE SORTING) ---
         async function fetchSubmittedData() {
             const dataBody = document.getElementById('dataBody'); const dataHead = document.getElementById('dataHead');
             dataBody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Fetching data...</td></tr>`;
             try {
-                const snapshot = await db.collection("asset_records").orderBy("Timestamp", "desc").get();
+                const snapshot = await db.collection("asset_records").get();
                 if (snapshot.empty) { dataHead.innerHTML = ''; dataBody.innerHTML = `<tr><td style="text-align:center;">No records found.</td></tr>`; return; }
                 
                 let allRecords = []; 
-                
-                // 1. Get ONLY the Active Field Labels from appData
                 let activeFormFields = appData.fields.map(f => f.label);
-                
-                // 2. Define exactly which columns are allowed in the table
                 let allowedKeys = ["Timestamp", "Status", ...activeFormFields, "Issued Item"];
-                
                 let uniqueKeys = new Set();
                 uniqueKeys.add("Timestamp"); uniqueKeys.add("Status");
                 
                 snapshot.forEach(doc => {
                     let data = doc.data(); if(!data.Status) data.Status = 'Pending';
                     allRecords.push({ id: doc.id, data: data });
-                    
-                    // 3. Only add headers if they exist in the allowedKeys list
-                    Object.keys(data).forEach(key => {
-                        if (allowedKeys.includes(key) && data[key] !== "") {
-                            uniqueKeys.add(key);
-                        }
-                    });
+                    Object.keys(data).forEach(key => { if (allowedKeys.includes(key) && data[key] !== "") { uniqueKeys.add(key); } });
+                });
+
+                // Perfect Date-Wise Sorting (Newest First)
+                allRecords.sort((a, b) => {
+                    function parseMyDate(str) {
+                        if(!str) return 0;
+                        let d = new Date(str);
+                        if(!isNaN(d.getTime())) return d.getTime();
+                        try {
+                            let parts = str.split(',')[0].trim().split(/[-/]/);
+                            if(parts.length === 3) {
+                                let timeStr = str.split(',')[1] || "12:00:00 am";
+                                return new Date(`${parts[1]}/${parts[0]}/${parts[2]} ${timeStr}`).getTime(); // assuming DD/MM/YYYY
+                            }
+                        } catch(e) {} return 0;
+                    }
+                    let timeA = a.data.serverTimestamp ? a.data.serverTimestamp.toMillis() : parseMyDate(a.data.Timestamp);
+                    let timeB = b.data.serverTimestamp ? b.data.serverTimestamp.toMillis() : parseMyDate(b.data.Timestamp);
+                    return timeB - timeA;
                 });
                 
-                // 4. Sort Headers to keep Timestamp/Status first, then form fields, then Issued Item
                 let sortedHeaders = allowedKeys.filter(key => uniqueKeys.has(key));
-
                 let headersHtml = "<tr>"; 
                 sortedHeaders.forEach(key => headersHtml += `<th>${key}</th>`); 
                 headersHtml += `<th>Actions</th></tr>`;
@@ -646,7 +743,7 @@
                     } else {
                         actions += `<button class="action-btn" style="background:#25D366; margin-bottom:5px; width:100%; font-size:13px;" onclick="shareOnWhatsApp('${recordStr}')">📲 Share WhatsApp</button>`;
                     }
-                    actions += `<button class="action-btn btn-del" onclick="deleteRecord('${record.id}')" style="width: 100%;">🗑️ Delete</button>`;
+                    actions += `<button class="action-btn btn-del" onclick="deleteAssetRecord('${record.id}')" style="width: 100%;">🗑️ Delete</button>`;
 
                     rowsHtml += `<td style="min-width: 140px;">${actions}</td></tr>`;
                 });
@@ -657,27 +754,19 @@
         async function changeRecordStatus(docId, newStatus) {
             let msg = newStatus === 'Resolved' ? "Kiya aap is problem ko 'Resolved' mark karna chahte hain? (Stock minus nahi hoga)" : "Kiya aap is request ko Reject karna chahte hain?";
             if(confirm(msg)) {
-                try {
-                    await db.collection("asset_records").doc(docId).update({ Status: newStatus });
-                    fetchSubmittedData();
-                } catch(e) { console.error(e); alert("Database Error."); }
+                try { await db.collection("asset_records").doc(docId).update({ Status: newStatus }); fetchSubmittedData(); } 
+                catch(e) { console.error(e); alert("Database Error."); }
             }
         }
 
-        // WhatsApp Share also respects active fields
         function shareOnWhatsApp(recordDataStr) {
             let data = JSON.parse(decodeURIComponent(recordDataStr));
             let activeFormFields = appData.fields.map(f => f.label);
             
-            let waText = `*Bandhan IT Support Update*\n\n`;
-            waText += `*Status:* ${data.Status}\n`;
+            let waText = `*Bandhan IT Support Update*\n\n*Status:* ${data.Status}\n`;
             if (data['Issued Item']) { waText += `*Issued Item:* ${data['Issued Item']}\n`; }
             
-            // Only add fields that are currently active in the form
-            activeFormFields.forEach(key => {
-                if(data[key]) { waText += `*${key}:* ${data[key]}\n`; }
-            });
-            
+            activeFormFields.forEach(key => { if(data[key]) { waText += `*${key}:* ${data[key]}\n`; } });
             waText += `\n_Regard: Rashid Hussain (IT)_`;
             window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
         }
@@ -705,7 +794,7 @@
             stockInventory[selectedItem] -= qty;
 
             try {
-                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory }, { merge: true });
+                await db.collection("app_settings").doc("stock_config").set({ items: stockInventory });
                 let buName = recordData['BU Name'] || 'Unknown BU'; let buId = recordData['BU ID'] || '-'; let ticket = recordData['BERP Ticket Number'] || '-';
 
                 await db.collection("stock_history").add({ date: new Date().toLocaleString('en-IN'), timestamp: firebase.firestore.FieldValue.serverTimestamp(), type: "OUTWARD (-)", item: selectedItem, qty: qty, buName: buName, buId: buId, ticket: ticket });
@@ -717,7 +806,6 @@
             } catch(e) { console.error("Error issuing stock:", e); alert("Error saving to database."); }
         }
 
-        // Dynamic Excel Export - Auto Syncs with Table
         function exportToExcel() {
             let table = document.getElementById("submittedDataTable");
             if(table.rows.length <= 1 || table.rows[0].cells[0].innerText.includes("Click Refresh")) { alert("Kripya pehle 'Refresh Data' button dabayein."); return; }
@@ -728,8 +816,8 @@
             XLSX.writeFile(wb, `Bandhan_Asset_Records_${dateStr}.xlsx`);
         }
 
-        async function deleteRecord(docId) {
-            if (confirm("Kiya aap sach me is record ko Database se hamesha ke liye Delete karna chahte hain?")) {
+        async function deleteAssetRecord(docId) {
+            if (confirm("Kiya aap sach me is form record ko hamesha ke liye Delete karna chahte hain?")) {
                 try { await db.collection("asset_records").doc(docId).delete(); alert("Record Deleted!"); fetchSubmittedData(); } catch(error) { console.error("Delete Error:", error); }
             }
         }
